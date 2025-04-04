@@ -10,8 +10,8 @@ import Image from "next/image"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "CEO MEMO System",
-  description: "A comprehensive CEO MEMO System management system with role-based access control",
+  title: "ZenHRM System",
+  description: "A comprehensive ZenHRM System management system with role-based access control",
 }
 
 export default function RootLayout({
