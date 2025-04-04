@@ -2,7 +2,7 @@ name: Sync Fork
 
 on:
   schedule:
-    - cron: '* * * * *'  # Chạy mỗi ngày vào lúc 00:00 UTC
+    - cron: '* * * * *'  # Chạy mỗi phút
   push:
     branches:
       - main  # Chạy khi có thay đổi push lên nhánh main
@@ -40,12 +40,21 @@ jobs:
           git checkout --ours .gitignore
           git add .gitignore
 
+      - name: Check for unfinished merge
+        run: |
+          if [ -f .git/MERGE_HEAD ]; then
+            echo "Merge conflict detected. Committing changes..."
+            git commit -m "Resolved merge conflicts and sync fork"
+          else
+            echo "No merge in progress."
+          fi
+
       - name: Pull remote changes before pushing
         run: |
           git pull origin main --rebase  # Kéo các thay đổi mới nhất từ remote và rebase lên nhánh hiện tại
 
       - name: Commit merge changes
-        run: git commit -m "Resolved merge conflicts and sync fork"
+        run: git commit -m "Resolved merge conflicts and sync fork" || echo "No changes to commit"
 
       - name: Push changes to fork
         run: git push origin main
