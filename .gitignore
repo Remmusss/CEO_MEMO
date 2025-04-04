@@ -25,3 +25,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Các file từ GitHub Actions
+.github/workflows/*
+!*.yml  # Đảm bảo giữ lại các file YAML của workflow
