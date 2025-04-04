@@ -15,6 +15,11 @@ jobs:
       - name: Checkout the repository
         uses: actions/checkout@v2
 
+      - name: Set up Git user
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+
       - name: Add remote for upstream
         run: git remote add upstream https://github.com/levphuocthinh/CEO_MEMO.git
 
