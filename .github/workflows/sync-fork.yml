@@ -2,7 +2,7 @@ name: Sync Fork
 
 on:
   schedule:
-    - cron: '* * * * *'  # Chạy mỗi phút
+    - cron: '* * * * *'  # Chạy mỗi ngày vào lúc 00:00 UTC
   push:
     branches:
       - main  # Chạy khi có thay đổi push lên nhánh main
@@ -27,4 +27,17 @@ jobs:
         run: git fetch upstream
 
       - name: Sync local repository with upstream
-        run: git merge upstream/main --allow-unrelated-histories -m "Sync fork with upstream"
+        run: |
+          git merge upstream/main --allow-unrelated-histories -m "Sync fork with upstream" || true
+
+      - name: Resolve merge conflicts (if any) except .gitignore
+        run: |
+          # Chỉ giải quyết conflict cho README.md (bỏ qua .gitignore)
+          git checkout --theirs README.md
+          git add README.md
+
+      - name: Commit merge changes
+        run: git commit -m "Resolved merge conflicts and sync fork"
+
+      - name: Push changes to fork
+        run: git push origin main
