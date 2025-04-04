@@ -16,9 +16,28 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { Search, MoreHorizontal, UserPlus } from "lucide-react"
+import { Search, MoreHorizontal, UserPlus, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { translations, type Language, type Translations } from "@/lib/i18n/translations"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Label } from "@/components/ui/label"
 
 // Mock employee data
 const mockEmployees = [
@@ -94,6 +113,16 @@ export default function EmployeesPage() {
   const [language, setLanguage] = useState<Language>("en")
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
+  
+  // New states for dialogs
+  const [openAddDialog, setOpenAddDialog] = useState(false)
+  const [openConfirm, setOpenConfirm] = useState(false)
+  const [newEmployee, setNewEmployee] = useState({
+    name: "",
+    email: "",
+    department: "",
+    jobTitle: "",
+  })
 
   useEffect(() => {
     setMounted(true)
@@ -126,6 +155,29 @@ export default function EmployeesPage() {
       setEmployees(filtered)
     }
   }
+  
+  // Form handlers
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target
+    setNewEmployee(prev => ({ ...prev, [name]: value }))
+  }
+  
+  const handleSubmit = () => {
+    setOpenAddDialog(false)
+    setOpenConfirm(true)
+  }
+  
+  const handleConfirm = () => {
+    // Just close the dialog in this minimal implementation
+    setOpenConfirm(false)
+    // Reset form
+    setNewEmployee({
+      name: "",
+      email: "",
+      department: "",
+      jobTitle: "",
+    })
+  }
 
   if (!mounted || (userRole !== "admin" && userRole !== "hr-manager")) {
     return null
@@ -135,7 +187,7 @@ export default function EmployeesPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">{t.employees.title}</h1>
-        <Button>
+        <Button onClick={() => setOpenAddDialog(true)}>
           <UserPlus className="mr-2 h-4 w-4" />
           {t.employees.addEmployee}
         </Button>
@@ -227,7 +279,90 @@ export default function EmployeesPage() {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Add Employee Dialog */}
+      <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.employees.addEmployee}</DialogTitle>
+            <DialogDescription>Add a new employee to the system</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">Name</Label>
+              <Input 
+                id="name" 
+                name="name"
+                value={newEmployee.name}
+                onChange={handleInputChange}
+                className="col-span-3" 
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="email" className="text-right">Email</Label>
+              <Input 
+                id="email" 
+                name="email"
+                value={newEmployee.email}
+                onChange={handleInputChange}
+                className="col-span-3" 
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="department" className="text-right">Department</Label>
+              <Input 
+                id="department" 
+                name="department"
+                value={newEmployee.department}
+                onChange={handleInputChange}
+                className="col-span-3" 
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="jobTitle" className="text-right">Job Title</Label>
+              <Input 
+                id="jobTitle" 
+                name="jobTitle"
+                value={newEmployee.jobTitle}
+                onChange={handleInputChange}
+                className="col-span-3" 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setOpenAddDialog(false)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSubmit}>
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Confirmation Dialog */}
+      <AlertDialog open={openConfirm} onOpenChange={setOpenConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm New Employee</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please confirm that you want to add the following employee:
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="rounded-md bg-muted p-4">
+              <p><strong>Name:</strong> {newEmployee.name}</p>
+              <p><strong>Email:</strong> {newEmployee.email}</p>
+              <p><strong>Department:</strong> {newEmployee.department}</p>
+              <p><strong>Job Title:</strong> {newEmployee.jobTitle}</p>
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirm}>Confirm</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
-

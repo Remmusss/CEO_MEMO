@@ -4,13 +4,14 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { LanguageProvider } from "@/lib/i18n/language-context"
 import { Toaster } from "@/components/ui/toaster"
+import Image from "next/image"  
+
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "HR & Payroll Management System",
-  description: "A comprehensive HR and payroll management system with role-based access control",
-    generator: 'v0.dev'
+  title: "CEO MEMO System",
+  description: "A comprehensive CEO MEMO System management system with role-based access control",
 }
 
 export default function RootLayout({
