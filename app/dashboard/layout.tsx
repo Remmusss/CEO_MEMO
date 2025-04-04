@@ -126,7 +126,7 @@ export default function DashboardLayout({
           <Link href="/dashboard" className="flex items-center font-semibold">
             <Briefcase className="mr-2 h-5 w-5 text-blue-600" />
             <span className="bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent font-bold">
-              HR & Payroll
+              CEO MEMO
             </span>
           </Link>
         </div>
