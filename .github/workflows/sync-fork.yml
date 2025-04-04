@@ -1,35 +1,62 @@
 name: Sync Fork
-
 on:
   schedule:
-    - cron: '* * * * *'  # Chạy mỗi ngày vào lúc 00:00 UTC
+    - cron: '0 0 * * *'  # Chạy mỗi ngày
   push:
     branches:
       - main  # Chạy khi có thay đổi push lên nhánh main
-
 jobs:
-  sync:
+  check_changes:
     runs-on: windows-latest
-
+    outputs:
+      has_changes: ${{ steps.check_upstream.outputs.has_changes }}
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v2
-
+        with:
+          fetch-depth: 0
+      
+      - name: Add remote for upstream
+        run: git remote add upstream https://github.com/levphuocthinh/CEO_MEMO.git
+      
+      - name: Fetch upstream changes
+        run: git fetch upstream
+      
+      - name: Check for changes in upstream
+        id: check_upstream
+        run: |
+          $changes = git rev-list --count HEAD..upstream/main
+          echo "Number of new commits: $changes"
+          if ($changes -gt 0) {
+            echo "has_changes=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            echo "has_changes=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+        shell: pwsh
+  
+  sync:
+    needs: check_changes
+    if: ${{ needs.check_changes.outputs.has_changes == 'true' }}
+    runs-on: windows-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v2
+      
       - name: Set up Git user
         run: |
           git config --global user.name "github-actions"
           git config --global user.email "github-actions@github.com"
-
+      
       - name: Add remote for upstream
         run: git remote add upstream https://github.com/levphuocthinh/CEO_MEMO.git
-
+      
       - name: Fetch upstream changes
         run: git fetch upstream
-
+      
       - name: Sync local repository with upstream
         run: |
           git merge upstream/main --allow-unrelated-histories -m "Sync fork with upstream" || true
-
+      
       - name: Resolve merge conflicts (except .gitignore)
         run: |
           # Giải quyết conflict cho README.md và các file khác
@@ -39,9 +66,9 @@ jobs:
           # Bỏ qua conflict cho .gitignore
           git checkout --ours .gitignore
           git add .gitignore
-
+      
       - name: Commit merge changes
         run: git commit -m "Resolved merge conflicts and sync fork"
-
+      
       - name: Push changes to fork
         run: git push origin main
