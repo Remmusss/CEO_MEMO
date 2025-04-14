@@ -26,6 +26,8 @@ export type Translations = {
     active: string
     inactive: string
     onLeave: string
+    new: string
+    configure: string
   }
   auth: {
     loginTitle: string
@@ -129,6 +131,15 @@ export type Translations = {
     markAsRead: string
     notificationSettings: string
     configurePreferences: string
+    workAnniversary: string
+    sendAnniversary: string
+    leavePolicy: string
+    sendLeave: string
+    payrollNotifications: string
+    sendPayroll: string
+    emailNotifications: string
+    configureEmail: string
+    additionalDetails: string
   }
   profile: {
     title: string
@@ -197,6 +208,35 @@ export type Translations = {
     japanese: string
     vietnamese: string
   }
+  reports: {
+    title: string
+    generateReport: string
+    exportData: string
+    totalEmployees: string
+    averageSalary: string
+    totalPayroll: string
+    attendanceRate: string
+    reportControls: string
+    configureReports: string
+    reportType: string
+    hrReports: string
+    payrollReports: string
+    stockReports: string
+    timeRange: string
+    lastMonth: string
+    last3Months: string
+    last6Months: string
+    lastYear: string
+    charts: string
+    tables: string
+    tabularData: string
+    departmentDistribution: string
+    salaryDistribution: string
+    monthlyPayroll: string
+    payrollDistribution: string
+    attendanceOverview: string
+    attendanceStatistics: string
+  }
 }
 
 export const translations: Record<Language, Translations> = {
@@ -224,6 +264,8 @@ export const translations: Record<Language, Translations> = {
       active: "Active",
       inactive: "Inactive",
       onLeave: "On Leave",
+      new: "New",
+      configure: "Configure",
     },
     auth: {
       loginTitle: "Login",
@@ -327,6 +369,15 @@ export const translations: Record<Language, Translations> = {
       markAsRead: "Mark as read",
       notificationSettings: "Notification Settings",
       configurePreferences: "Configure system-wide notification preferences",
+      workAnniversary: "Work Anniversary Notifications",
+      sendAnniversary: "Send notifications for employee work anniversaries",
+      leavePolicy: "Leave Policy Alerts",
+      sendLeave: "Send alerts when employees violate leave policies",
+      payrollNotifications: "Payroll Notifications",
+      sendPayroll: "Send notifications about payroll processing and errors",
+      emailNotifications: "Email Notifications",
+      configureEmail: "Configure email delivery for system notifications",
+      additionalDetails: "Additional Details",
     },
     profile: {
       title: "My Profile",
@@ -395,6 +446,35 @@ export const translations: Record<Language, Translations> = {
       japanese: "Japanese",
       vietnamese: "Vietnamese",
     },
+    reports: {
+      title: "Reports & Analytics",
+      generateReport: "Generate Report",
+      exportData: "Export Data",
+      totalEmployees: "Total Employees",
+      averageSalary: "Average Salary",
+      totalPayroll: "Total Payroll",
+      attendanceRate: "Attendance Rate",
+      reportControls: "Report Controls",
+      configureReports: "Configure and generate reports",
+      reportType: "Report Type",
+      hrReports: "HR Reports",
+      payrollReports: "Payroll Reports",
+      stockReports: "Stock Dividend Reports",
+      timeRange: "Time Range",
+      lastMonth: "Last Month",
+      last3Months: "Last 3 Months",
+      last6Months: "Last 6 Months",
+      lastYear: "Last Year",
+      charts: "Charts",
+      tables: "Tables",
+      tabularData: "Tabular data will be displayed here based on the selected report type and time range.",
+      departmentDistribution: "Department Distribution",
+      salaryDistribution: "Salary distribution by department",
+      monthlyPayroll: "Monthly Payroll Trend",
+      payrollDistribution: "Total payroll distribution for the last 6 months",
+      attendanceOverview: "Attendance Overview",
+      attendanceStatistics: "Current month attendance statistics",
+    },
   },
   ja: {
     common: {
@@ -420,6 +500,8 @@ export const translations: Record<Language, Translations> = {
       active: "アクティブ",
       inactive: "非アクティブ",
       onLeave: "休暇中",
+      new: "新規",
+      configure: "設定",
     },
     auth: {
       loginTitle: "ログイン",
@@ -523,6 +605,15 @@ export const translations: Record<Language, Translations> = {
       markAsRead: "既読にする",
       notificationSettings: "通知設定",
       configurePreferences: "システム全体の通知設定を構成します",
+      workAnniversary: "勤続記念日の通知",
+      sendAnniversary: "従業員の勤続記念日の通知を送信",
+      leavePolicy: "休暇ポリシーアラート",
+      sendLeave: "従業員が休暇ポリシーに違反した場合にアラートを送信",
+      payrollNotifications: "給与通知",
+      sendPayroll: "給与処理とエラーに関する通知を送信",
+      emailNotifications: "メール通知",
+      configureEmail: "システム通知のメール配信を設定",
+      additionalDetails: "追加詳細",
     },
     profile: {
       title: "マイプロフィール",
@@ -591,6 +682,35 @@ export const translations: Record<Language, Translations> = {
       japanese: "日本語",
       vietnamese: "ベトナム語",
     },
+    reports: {
+      title: "レポート＆分析",
+      generateReport: "レポート生成",
+      exportData: "データのエクスポート",
+      totalEmployees: "従業員総数",
+      averageSalary: "平均給与",
+      totalPayroll: "給与総額",
+      attendanceRate: "出勤率",
+      reportControls: "レポートコントロール",
+      configureReports: "レポートの設定と生成",
+      reportType: "レポートタイプ",
+      hrReports: "人事レポート",
+      payrollReports: "給与レポート",
+      stockReports: "株式配当レポート",
+      timeRange: "期間",
+      lastMonth: "先月",
+      last3Months: "過去3ヶ月",
+      last6Months: "過去6ヶ月",
+      lastYear: "過去1年",
+      charts: "チャート",
+      tables: "テーブル",
+      tabularData: "選択したレポートタイプと期間に基づいて表形式のデータが表示されます。",
+      departmentDistribution: "部署分布",
+      salaryDistribution: "部署別給与分布",
+      monthlyPayroll: "月次給与トレンド",
+      payrollDistribution: "過去6ヶ月の給与総額分布",
+      attendanceOverview: "出勤概要",
+      attendanceStatistics: "今月の出勤統計",
+    },
   },
   vi: {
     common: {
@@ -616,6 +736,8 @@ export const translations: Record<Language, Translations> = {
       active: "Hoạt động",
       inactive: "Không hoạt động",
       onLeave: "Đang nghỉ phép",
+      new: "Mới",
+      configure: "Cấu hình",
     },
     auth: {
       loginTitle: "Đăng nhập",
@@ -719,6 +841,15 @@ export const translations: Record<Language, Translations> = {
       markAsRead: "Đánh dấu đã đọc",
       notificationSettings: "Cài đặt thông báo",
       configurePreferences: "Cấu hình tùy chọn thông báo toàn hệ thống",
+      workAnniversary: "Thông báo kỷ niệm công việc",
+      sendAnniversary: "Gửi thông báo cho kỷ niệm công việc của nhân viên",
+      leavePolicy: "Cảnh báo chính sách nghỉ phép",
+      sendLeave: "Gửi cảnh báo khi nhân viên vi phạm chính sách nghỉ phép",
+      payrollNotifications: "Thông báo lương",
+      sendPayroll: "Gửi thông báo về xử lý lương và lỗi",
+      emailNotifications: "Thông báo email",
+      configureEmail: "Cấu hình gửi email cho thông báo hệ thống",
+      additionalDetails: "Chi tiết bổ sung",
     },
     profile: {
       title: "Hồ sơ của tôi",
@@ -787,6 +918,34 @@ export const translations: Record<Language, Translations> = {
       japanese: "Tiếng Nhật",
       vietnamese: "Tiếng Việt",
     },
+    reports: {
+      title: "Báo cáo & Phân tích",
+      generateReport: "Tạo báo cáo",
+      exportData: "Xuất dữ liệu",
+      totalEmployees: "Tổng số nhân viên",
+      averageSalary: "Lương trung bình",
+      totalPayroll: "Tổng lương",
+      attendanceRate: "Tỷ lệ điểm danh",
+      reportControls: "Điều khiển báo cáo",
+      configureReports: "Cấu hình và tạo báo cáo",
+      reportType: "Loại báo cáo",
+      hrReports: "Báo cáo nhân sự",
+      payrollReports: "Báo cáo lương",
+      stockReports: "Báo cáo cổ tức",
+      timeRange: "Khoảng thời gian",
+      lastMonth: "Tháng trước",
+      last3Months: "3 tháng trước",
+      last6Months: "6 tháng trước",
+      lastYear: "Năm trước",
+      charts: "Biểu đồ",
+      tables: "Bảng",
+      tabularData: "Dữ liệu dạng bảng sẽ được hiển thị dựa trên loại báo cáo và khoảng thời gian đã chọn.",
+      departmentDistribution: "Phân bố phòng ban",
+      salaryDistribution: "Phân bố lương theo phòng ban",
+      monthlyPayroll: "Xu hướng lương hàng tháng",
+      payrollDistribution: "Phân bố tổng lương trong 6 tháng qua",
+      attendanceOverview: "Tổng quan điểm danh",
+      attendanceStatistics: "Thống kê điểm danh tháng hiện tại",
+    },
   },
 }
-

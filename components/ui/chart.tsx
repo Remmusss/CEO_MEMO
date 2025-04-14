@@ -12,6 +12,8 @@ import {
   Legend,
   LineChart as RechartsLineChart,
   Line,
+  Area as RechartsArea,
+  AreaChart as RechartsAreaChart,
 } from "recharts"
 
 export {
@@ -28,5 +30,6 @@ export {
   Legend,
   RechartsLineChart as LineChart,
   Line,
+  RechartsArea as Area,
+  RechartsAreaChart as AreaChart,
 }
-

@@ -12,9 +12,9 @@ export default function Home() {
       <Card className="w-full max-w-md shadow-lg border-0">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">
-          ZenHRM
+            ZenHRM System
           </CardTitle>
-          <CardDescription>Login to access the ZenHRM management system</CardDescription>
+          <CardDescription>Login to access the ZenHRM System</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
@@ -29,4 +29,3 @@ export default function Home() {
     </div>
   )
 }
-

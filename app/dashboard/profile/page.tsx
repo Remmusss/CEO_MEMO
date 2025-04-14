@@ -1,18 +1,24 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { User, Mail, Phone, Calendar, Building2, Briefcase, DollarSign, Clock, Shield } from "lucide-react"
+import { Textarea } from "@/components/ui/textarea"
+import { User, Mail, Phone, Calendar, Building2, Briefcase, DollarSign, Clock, Shield, Save, X } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { translations, type Language } from "@/lib/i18n/translations"
+import { useLanguage } from "@/lib/i18n/language-context"
+import { useToast } from "@/hooks/use-toast"
+import { motion } from "framer-motion"
+import { AvatarUpload } from "@/components/avatar-upload"
 
-// Mock user data
-const mockUserData = {
+// Default user data structure
+const defaultUserData = {
   id: "EMP001",
   name: "John Doe",
   email: "john.doe@example.com",
@@ -21,6 +27,11 @@ const mockUserData = {
   jobTitle: "Senior Developer",
   joinDate: "2020-05-12",
   status: "Active",
+  bio: "Experienced software developer with expertise in web technologies and system architecture.",
+  address: "123 Main St, Anytown, USA",
+  emergencyContact: "Jane Doe, +1 (555) 987-6543",
+  manager: "Sarah Johnson",
+  avatar: "/placeholder.svg?height=96&width=96",
   salary: {
     base: 5000,
     bonus: 500,
@@ -33,254 +44,629 @@ const mockUserData = {
     leave: 1,
     total: 22,
   },
-  manager: "Sarah Johnson",
-  address: "123 Main St, Anytown, USA",
-  emergencyContact: "Jane Doe, +1 (555) 987-6543",
 }
 
 export default function ProfilePage() {
-  const [userData, setUserData] = useState(mockUserData)
+  const [userData, setUserData] = useState(defaultUserData)
   const [userRole, setUserRole] = useState<string | null>(null)
-  const [language, setLanguage] = useState<Language>("en")
   const [mounted, setMounted] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editedData, setEditedData] = useState(defaultUserData)
+  const { t } = useLanguage()
+  const { toast } = useToast()
 
   useEffect(() => {
     setMounted(true)
     const role = localStorage.getItem("userRole")
-    const savedLanguage = (localStorage.getItem("language") as Language) || "en"
-    
     setUserRole(role)
-    setLanguage(savedLanguage)
+
+    // Try to load user data from localStorage
+    const storedUserData = localStorage.getItem("userData")
+    if (storedUserData) {
+      try {
+        const parsedData = JSON.parse(storedUserData)
+        // Merge with default data to ensure all fields exist
+        setUserData({
+          ...defaultUserData,
+          ...parsedData,
+        })
+        setEditedData({
+          ...defaultUserData,
+          ...parsedData,
+        })
+      } catch (e) {
+        console.error("Failed to parse user data", e)
+      }
+    }
   }, [])
 
-  const t = translations[language]
+  const handleEditToggle = () => {
+    if (isEditing) {
+      // Cancel editing
+      setEditedData(userData)
+    }
+    setIsEditing(!isEditing)
+  }
+
+  const handleSaveProfile = () => {
+    setUserData(editedData)
+    setIsEditing(false)
+
+    // Save to localStorage
+    localStorage.setItem("userData", JSON.stringify(editedData))
+    localStorage.setItem("userName", editedData.name)
+
+    toast({
+      title: "Profile Updated",
+      description: "Your profile has been successfully updated",
+    })
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+
+    // Handle nested properties
+    if (name.includes(".")) {
+      const [parent, child] = name.split(".")
+      const parentValue = editedData[parent as keyof typeof editedData]
+      
+      // Ensure we're only spreading object types
+      if (parentValue && typeof parentValue === 'object') {
+        setEditedData({
+          ...editedData,
+          [parent]: {
+            ...(parentValue as Record<string, any>),
+            [child]: value,
+          },
+        })
+      }
+    } else {
+      setEditedData({
+        ...editedData,
+        [name]: value,
+      })
+    }
+  }
+
+  const handleAvatarChange = (imageUrl: string) => {
+    setEditedData({
+      ...editedData,
+      avatar: imageUrl,
+    })
+  }
 
   if (!mounted) {
     return null
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{t.profile.title}</h1>
+    <motion.div className="space-y-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+          {t("profile.title")}
+        </h1>
+        <Button
+          onClick={handleEditToggle}
+          className={isEditing ? "bg-red-600 hover:bg-red-700" : "bg-blue-600 hover:bg-blue-700"}
+        >
+          {isEditing ? (
+            <>
+              <X className="mr-2 h-4 w-4" />
+              Cancel
+            </>
+          ) : (
+            <>
+              <User className="mr-2 h-4 w-4" />
+              Edit Profile
+            </>
+          )}
+        </Button>
+      </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="md:col-span-1">
+        <Card className="md:col-span-1 border-0 shadow-xl bg-gradient-to-b from-slate-900 to-slate-800">
           <CardHeader>
-            <div className="flex flex-col items-center space-y-2">
-              <Avatar className="h-24 w-24">
-                <AvatarImage src="/placeholder-user.jpg" alt={userData.name} />
-                <AvatarFallback>
-                  {userData.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                </AvatarFallback>
-              </Avatar>
+            <div className="flex flex-col items-center space-y-4">
+              {isEditing ? (
+                <AvatarUpload initialImage={userData.avatar} name={userData.name} onAvatarChange={handleAvatarChange} />
+              ) : (
+                <Avatar className="h-24 w-24 border-2 border-blue-500/20">
+                  <AvatarImage src={userData.avatar || "/placeholder.svg"} alt={userData.name} />
+                  <AvatarFallback className="bg-blue-900 text-blue-100">
+                    {userData.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
+                  </AvatarFallback>
+                </Avatar>
+              )}
               <div className="space-y-1 text-center">
-                <h2 className="text-xl font-bold">{userData.name}</h2>
-                <p className="text-sm text-muted-foreground">{userData.jobTitle}</p>
-                <Badge variant="outline">{userData.department}</Badge>
+                <h2 className="text-xl font-bold text-white">{userData.name}</h2>
+                <p className="text-sm text-blue-300">{userData.jobTitle}</p>
+                <Badge variant="outline" className="bg-blue-900/50 text-blue-100 border-blue-700">
+                  {userData.department}
+                </Badge>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="border-t border-slate-700/50 pt-4">
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
-                <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{userData.email}</span>
+                <Mail className="h-4 w-4 text-blue-400" />
+                <span className="text-sm text-slate-300">{userData.email}</span>
               </div>
               <div className="flex items-center space-x-2">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{userData.phone}</span>
+                <Phone className="h-4 w-4 text-blue-400" />
+                <span className="text-sm text-slate-300">{userData.phone}</span>
               </div>
               <div className="flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{t.profile.joinDate} {new Date(userData.joinDate).toLocaleDateString()}</span>
+                <Calendar className="h-4 w-4 text-blue-400" />
+                <span className="text-sm text-slate-300">
+                  Joined {new Date(userData.joinDate).toLocaleDateString()}
+                </span>
               </div>
               <div className="flex items-center space-x-2">
-                <Building2 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{t.profile.manager} {userData.manager}</span>
+                <Building2 className="h-4 w-4 text-blue-400" />
+                <span className="text-sm text-slate-300">Reports to {userData.manager}</span>
               </div>
-              <div className="pt-4">
-                <Button className="w-full">{t.profile.editProfile}</Button>
-              </div>
+              {!isEditing && (
+                <div className="pt-4">
+                  <div className="rounded-md border border-slate-700 p-3 bg-slate-800/50">
+                    <h4 className="text-sm font-medium mb-2 text-blue-300">About Me</h4>
+                    <p className="text-sm text-slate-400">{userData.bio || "No bio provided."}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>{t.profile.employeeInformation}</CardTitle>
-            <CardDescription>{t.profile.title}</CardDescription>
+        <Card className="md:col-span-2 border-0 shadow-xl bg-gradient-to-b from-slate-900 to-slate-800">
+          <CardHeader className="border-b border-slate-700/50">
+            <CardTitle className="text-white">{t("profile.employeeInformation")}</CardTitle>
+            <CardDescription className="text-blue-300">
+              View and manage your personal and employment details
+            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <Tabs defaultValue="personal" className="space-y-4">
-              <TabsList>
-                <TabsTrigger value="personal">
+              <TabsList className="bg-slate-800 border border-slate-700">
+                <TabsTrigger
+                  value="personal"
+                  className="data-[state=active]:bg-blue-900 data-[state=active]:text-white"
+                >
                   <User className="mr-2 h-4 w-4" />
-                  {t.profile.personalTab}
+                  {t("profile.personalTab")}
                 </TabsTrigger>
-                <TabsTrigger value="employment">
+                <TabsTrigger
+                  value="employment"
+                  className="data-[state=active]:bg-blue-900 data-[state=active]:text-white"
+                >
                   <Briefcase className="mr-2 h-4 w-4" />
-                  {t.profile.employmentTab}
+                  {t("profile.employmentTab")}
                 </TabsTrigger>
-                <TabsTrigger value="payroll">
+                <TabsTrigger value="payroll" className="data-[state=active]:bg-blue-900 data-[state=active]:text-white">
                   <DollarSign className="mr-2 h-4 w-4" />
-                  {t.profile.payrollTab}
+                  {t("profile.payrollTab")}
                 </TabsTrigger>
-                <TabsTrigger value="attendance">
+                <TabsTrigger
+                  value="attendance"
+                  className="data-[state=active]:bg-blue-900 data-[state=active]:text-white"
+                >
                   <Clock className="mr-2 h-4 w-4" />
-                  {t.profile.attendanceTab}
+                  {t("profile.attendanceTab")}
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="personal" className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="fullName">Full Name</Label>
-                    <Input id="fullName" value={userData.name} readOnly />
+                    <Label htmlFor="fullName" className="text-blue-300">
+                      {t("profile.fullName")}
+                    </Label>
+                    {isEditing ? (
+                      <Input
+                        id="fullName"
+                        name="name"
+                        value={editedData.name}
+                        onChange={handleInputChange}
+                        className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                      />
+                    ) : (
+                      <Input
+                        id="fullName"
+                        value={userData.name}
+                        readOnly
+                        className="bg-slate-800 border-slate-700 text-white"
+                      />
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input id="email" value={userData.email} readOnly />
+                    <Label htmlFor="email" className="text-blue-300">
+                      {t("profile.email")}
+                    </Label>
+                    {isEditing ? (
+                      <Input
+                        id="email"
+                        name="email"
+                        value={editedData.email}
+                        onChange={handleInputChange}
+                        className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                      />
+                    ) : (
+                      <Input
+                        id="email"
+                        value={userData.email}
+                        readOnly
+                        className="bg-slate-800 border-slate-700 text-white"
+                      />
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input id="phone" value={userData.phone} readOnly />
+                    <Label htmlFor="phone" className="text-blue-300">
+                      {t("profile.phone")}
+                    </Label>
+                    {isEditing ? (
+                      <Input
+                        id="phone"
+                        name="phone"
+                        value={editedData.phone}
+                        onChange={handleInputChange}
+                        className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                      />
+                    ) : (
+                      <Input
+                        id="phone"
+                        value={userData.phone}
+                        readOnly
+                        className="bg-slate-800 border-slate-700 text-white"
+                      />
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="address">Address</Label>
-                    <Input id="address" value={userData.address} readOnly />
+                    <Label htmlFor="address" className="text-blue-300">
+                      {t("profile.address")}
+                    </Label>
+                    {isEditing ? (
+                      <Input
+                        id="address"
+                        name="address"
+                        value={editedData.address}
+                        onChange={handleInputChange}
+                        className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                      />
+                    ) : (
+                      <Input
+                        id="address"
+                        value={userData.address}
+                        readOnly
+                        className="bg-slate-800 border-slate-700 text-white"
+                      />
+                    )}
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="emergency">Emergency Contact</Label>
-                    <Input id="emergency" value={userData.emergencyContact} readOnly />
+                    <Label htmlFor="emergency" className="text-blue-300">
+                      {t("profile.emergencyContact")}
+                    </Label>
+                    {isEditing ? (
+                      <Input
+                        id="emergency"
+                        name="emergencyContact"
+                        value={editedData.emergencyContact}
+                        onChange={handleInputChange}
+                        className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                      />
+                    ) : (
+                      <Input
+                        id="emergency"
+                        value={userData.emergencyContact}
+                        readOnly
+                        className="bg-slate-800 border-slate-700 text-white"
+                      />
+                    )}
                   </div>
+                  {isEditing && (
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="bio" className="text-blue-300">
+                        About Me
+                      </Label>
+                      <Textarea
+                        id="bio"
+                        name="bio"
+                        value={editedData.bio}
+                        onChange={handleInputChange}
+                        rows={4}
+                        placeholder="Tell us about yourself"
+                        className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                      />
+                    </div>
+                  )}
                 </div>
               </TabsContent>
 
               <TabsContent value="employment" className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label htmlFor="employeeId">Employee ID</Label>
-                    <Input id="employeeId" value={userData.id} readOnly />
+                    <Label htmlFor="employeeId" className="text-blue-300">
+                      {t("profile.employeeId")}
+                    </Label>
+                    <Input
+                      id="employeeId"
+                      value={userData.id}
+                      readOnly
+                      className="bg-slate-800 border-slate-700 text-white"
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="department">Department</Label>
-                    <Input id="department" value={userData.department} readOnly />
+                    <Label htmlFor="department" className="text-blue-300">
+                      {t("profile.department")}
+                    </Label>
+                    {isEditing ? (
+                      <Input
+                        id="department"
+                        name="department"
+                        value={editedData.department}
+                        onChange={handleInputChange}
+                        className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                      />
+                    ) : (
+                      <Input
+                        id="department"
+                        value={userData.department}
+                        readOnly
+                        className="bg-slate-800 border-slate-700 text-white"
+                      />
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="jobTitle">Job Title</Label>
-                    <Input id="jobTitle" value={userData.jobTitle} readOnly />
+                    <Label htmlFor="jobTitle" className="text-blue-300">
+                      {t("profile.jobTitle")}
+                    </Label>
+                    {isEditing ? (
+                      <Input
+                        id="jobTitle"
+                        name="jobTitle"
+                        value={editedData.jobTitle}
+                        onChange={handleInputChange}
+                        className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                      />
+                    ) : (
+                      <Input
+                        id="jobTitle"
+                        value={userData.jobTitle}
+                        readOnly
+                        className="bg-slate-800 border-slate-700 text-white"
+                      />
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="joinDate">Join Date</Label>
-                    <Input id="joinDate" value={new Date(userData.joinDate).toLocaleDateString()} readOnly />
+                    <Label htmlFor="joinDate" className="text-blue-300">
+                      {t("profile.joinDate")}
+                    </Label>
+                    <Input
+                      id="joinDate"
+                      value={new Date(userData.joinDate).toLocaleDateString()}
+                      readOnly
+                      className="bg-slate-800 border-slate-700 text-white"
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Input id="status" value={userData.status} readOnly />
+                    <Label htmlFor="status" className="text-blue-300">
+                      {t("profile.status")}
+                    </Label>
+                    <Input
+                      id="status"
+                      value={userData.status}
+                      readOnly
+                      className="bg-slate-800 border-slate-700 text-white"
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="manager">Manager</Label>
-                    <Input id="manager" value={userData.manager} readOnly />
+                    <Label htmlFor="manager" className="text-blue-300">
+                      {t("profile.manager")}
+                    </Label>
+                    <Input
+                      id="manager"
+                      value={userData.manager}
+                      readOnly
+                      className="bg-slate-800 border-slate-700 text-white"
+                    />
                   </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="payroll" className="space-y-4">
-                <div className="rounded-md border p-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <p className="text-sm font-medium">Base Salary</p>
-                      <p className="text-2xl font-bold">${userData.salary.base.toLocaleString()}</p>
+                <div className="rounded-md border border-slate-700 p-6 bg-slate-800/50">
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-lg border border-slate-700">
+                      <p className="text-sm font-medium text-blue-300">{t("profile.baseSalary")}</p>
+                      <p className="text-3xl font-bold text-white mt-2">${userData.salary.base.toLocaleString()}</p>
+                      <div className="mt-2 h-1 w-full bg-blue-900/30 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-blue-600 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: "100%" }}
+                          transition={{ duration: 1, delay: 0.2 }}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">Bonus</p>
-                      <p className="text-2xl font-bold">${userData.salary.bonus.toLocaleString()}</p>
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-lg border border-slate-700">
+                      <p className="text-sm font-medium text-blue-300">{t("profile.bonus")}</p>
+                      <p className="text-3xl font-bold text-white mt-2">${userData.salary.bonus.toLocaleString()}</p>
+                      <div className="mt-2 h-1 w-full bg-green-900/30 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-green-600 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: "60%" }}
+                          transition={{ duration: 1, delay: 0.3 }}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">Deductions</p>
-                      <p className="text-2xl font-bold">${userData.salary.deductions.toLocaleString()}</p>
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-lg border border-slate-700">
+                      <p className="text-sm font-medium text-blue-300">{t("profile.deductions")}</p>
+                      <p className="text-3xl font-bold text-white mt-2">
+                        ${userData.salary.deductions.toLocaleString()}
+                      </p>
+                      <div className="mt-2 h-1 w-full bg-red-900/30 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-red-600 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: "40%" }}
+                          transition={{ duration: 1, delay: 0.4 }}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">Net Salary</p>
-                      <p className="text-2xl font-bold">${userData.salary.net.toLocaleString()}</p>
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-lg border border-slate-700">
+                      <p className="text-sm font-medium text-blue-300">{t("profile.netSalary")}</p>
+                      <p className="text-3xl font-bold text-white mt-2">${userData.salary.net.toLocaleString()}</p>
+                      <div className="mt-2 h-1 w-full bg-purple-900/30 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-purple-600 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: "80%" }}
+                          transition={{ duration: 1, delay: 0.5 }}
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div className="mt-4">
-                    <Button variant="outline" className="w-full">
-                      View Salary History
+                  <div className="mt-6">
+                    <Button
+                      variant="outline"
+                      className="w-full border-slate-700 text-blue-300 hover:bg-blue-900/20 hover:text-blue-100"
+                    >
+                      {t("profile.viewSalaryHistory")}
                     </Button>
                   </div>
                 </div>
               </TabsContent>
 
               <TabsContent value="attendance" className="space-y-4">
-                <div className="rounded-md border p-4">
-                  <div className="grid gap-4 md:grid-cols-4">
-                    <div>
-                      <p className="text-sm font-medium">Present Days</p>
-                      <p className="text-2xl font-bold">{userData.attendance.present}</p>
+                <div className="rounded-md border border-slate-700 p-6 bg-slate-800/50">
+                  <div className="grid gap-6 md:grid-cols-4">
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-lg border border-slate-700">
+                      <p className="text-sm font-medium text-blue-300">{t("profile.presentDays")}</p>
+                      <p className="text-3xl font-bold text-white mt-2">{userData.attendance.present}</p>
+                      <div className="mt-2 h-1 w-full bg-green-900/30 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-green-600 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: "95%" }}
+                          transition={{ duration: 1, delay: 0.2 }}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">Absent Days</p>
-                      <p className="text-2xl font-bold">{userData.attendance.absent}</p>
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-lg border border-slate-700">
+                      <p className="text-sm font-medium text-blue-300">{t("profile.absentDays")}</p>
+                      <p className="text-3xl font-bold text-white mt-2">{userData.attendance.absent}</p>
+                      <div className="mt-2 h-1 w-full bg-red-900/30 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-red-600 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: "0%" }}
+                          transition={{ duration: 1, delay: 0.3 }}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">Leave Days</p>
-                      <p className="text-2xl font-bold">{userData.attendance.leave}</p>
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-lg border border-slate-700">
+                      <p className="text-sm font-medium text-blue-300">{t("profile.leaveDays")}</p>
+                      <p className="text-3xl font-bold text-white mt-2">{userData.attendance.leave}</p>
+                      <div className="mt-2 h-1 w-full bg-yellow-900/30 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-yellow-600 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: "5%" }}
+                          transition={{ duration: 1, delay: 0.4 }}
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">Working Days</p>
-                      <p className="text-2xl font-bold">{userData.attendance.total}</p>
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 p-4 rounded-lg border border-slate-700">
+                      <p className="text-sm font-medium text-blue-300">{t("profile.workingDays")}</p>
+                      <p className="text-3xl font-bold text-white mt-2">{userData.attendance.total}</p>
+                      <div className="mt-2 h-1 w-full bg-blue-900/30 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-blue-600 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: "100%" }}
+                          transition={{ duration: 1, delay: 0.5 }}
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div className="mt-4">
-                    <Button variant="outline" className="w-full">
-                      View Attendance History
+                  <div className="mt-6">
+                    <Button
+                      variant="outline"
+                      className="w-full border-slate-700 text-blue-300 hover:bg-blue-900/20 hover:text-blue-100"
+                    >
+                      {t("profile.viewAttendanceHistory")}
                     </Button>
                   </div>
                 </div>
               </TabsContent>
             </Tabs>
           </CardContent>
+          {isEditing && (
+            <CardFooter className="flex justify-end space-x-2 border-t border-slate-700/50 p-4">
+              <Button
+                variant="outline"
+                onClick={handleEditToggle}
+                className="border-slate-700 text-blue-300 hover:bg-red-900/20 hover:text-red-100"
+              >
+                <X className="mr-2 h-4 w-4" />
+                Cancel
+              </Button>
+              <Button onClick={handleSaveProfile} className="bg-blue-600 hover:bg-blue-700">
+                <Save className="mr-2 h-4 w-4" />
+                Save Changes
+              </Button>
+            </CardFooter>
+          )}
         </Card>
       </div>
 
       {userRole === "admin" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Security Settings</CardTitle>
-            <CardDescription>Manage your account security and access settings</CardDescription>
+        <Card className="border-0 shadow-xl bg-gradient-to-b from-slate-900 to-slate-800">
+          <CardHeader className="border-b border-slate-700/50">
+            <CardTitle className="text-white">Security Settings</CardTitle>
+            <CardDescription className="text-blue-300">
+              Manage your account security and access settings
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
+          <CardContent className="pt-6">
+            <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <div className="flex items-center">
-                    <Shield className="mr-2 h-4 w-4" />
-                    <span className="font-medium">Password</span>
+                    <Shield className="mr-2 h-4 w-4 text-blue-400" />
+                    <span className="font-medium text-white">Password</span>
                   </div>
-                  <div className="text-sm text-muted-foreground">Change your account password</div>
+                  <div className="text-sm text-slate-400">Change your account password</div>
                 </div>
-                <Button variant="outline">Change Password</Button>
+                <Button
+                  variant="outline"
+                  className="border-slate-700 text-blue-300 hover:bg-blue-900/20 hover:text-blue-100"
+                >
+                  Change Password
+                </Button>
               </div>
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <div className="flex items-center">
-                    <Shield className="mr-2 h-4 w-4" />
-                    <span className="font-medium">Two-Factor Authentication</span>
+                    <Shield className="mr-2 h-4 w-4 text-blue-400" />
+                    <span className="font-medium text-white">Two-Factor Authentication</span>
                   </div>
-                  <div className="text-sm text-muted-foreground">Add an extra layer of security to your account</div>
+                  <div className="text-sm text-slate-400">Add an extra layer of security to your account</div>
                 </div>
-                <Button variant="outline">Enable</Button>
+                <Button
+                  variant="outline"
+                  className="border-slate-700 text-blue-300 hover:bg-blue-900/20 hover:text-blue-100"
+                >
+                  Enable
+                </Button>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
-    </div>
+    </motion.div>
   )
 }
-
