@@ -28,13 +28,37 @@ export default function LoginPage() {
     setMounted(true)
   }, [])
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault()
+const handleLogin = async (e: React.FormEvent) => {
+  e.preventDefault()
 
-    // In a real application, we would validate credentials against a database
-    // For demo purposes, we'll just check if fields are filled and redirect to dashboard
-    if (username && password && role) {
-      // Create a mock user object with more details based on the role
+  if (!username || !password || !role) {
+    toast({
+      title: t("auth.loginFailed"),
+      description: "Please fill in all fields",
+      variant: "destructive",
+    })
+    return
+  }
+
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_DOMAIN}/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json",
+      },
+      body: new URLSearchParams({
+        username,
+        password,
+      }).toString(),
+    })
+
+    if (response.ok) {
+      const userToken = await response.json()
+      console.log("User token:", userToken)
+
+
+      // (Giả định API trả về token dưới dạng chuỗi, bạn có thể cập nhật nếu khác)
       const mockUserData = {
         id: `EMP${Math.floor(Math.random() * 1000)
           .toString()
@@ -60,12 +84,13 @@ export default function LoginPage() {
                 : "Software Engineer",
         joinDate: "2023-01-15",
         lastLogin: new Date().toISOString(),
+        token: userToken, // Lưu token nếu có
       }
 
-      // Store user data in localStorage for demo purposes
       localStorage.setItem("userRole", role)
       localStorage.setItem("userName", username)
       localStorage.setItem("userData", JSON.stringify(mockUserData))
+      localStorage.setItem("userToken", userToken?.access_token)
 
       toast({
         title: t("auth.loginSuccess"),
@@ -74,13 +99,23 @@ export default function LoginPage() {
 
       router.push("/dashboard")
     } else {
+      const error = await response.json()
       toast({
         title: t("auth.loginFailed"),
-        description: "Please fill in all fields",
+        description: error.detail?.[0]?.msg || "Invalid credentials",
         variant: "destructive",
       })
     }
+  } catch (error) {
+    toast({
+      title: t("auth.loginFailed"),
+      description: "Server error or network issue",
+      variant: "destructive",
+    })
+    console.error("Login error:", error)
   }
+}
+
 
   // Don't render the full component until client-side hydration is complete
   if (!mounted) {
