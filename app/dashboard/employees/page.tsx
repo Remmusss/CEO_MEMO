@@ -601,7 +601,7 @@ export default function EmployeesPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
                   <label htmlFor="dob" className="text-blue-300">
-                    Ngày sinh
+                    Ngày bắt đầu
                   </label>
                   <Input
                     id="dob"

@@ -1,8 +1,6 @@
 "use client";
 
-import type React from "react";
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useEffect, useState, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -10,647 +8,963 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { motion } from "framer-motion";
 import {
-  ArrowLeft,
-  Edit,
-  Mail,
-  Phone,
-  Calendar,
-  User,
-  Briefcase,
-  Building,
+  Users,
+  DollarSign,
+  Building2,
+  Bell,
   Clock,
-  Award,
-  Save,
+  TrendingUp,
+  Percent,
+  UserPlus,
+  ArrowUpRight,
+  Activity,
+  BarChart3,
 } from "lucide-react";
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  LineChart,
+  Line,
+  Area,
+  AreaChart,
+} from "@/components/ui/chart";
+import { useLanguage } from "@/lib/i18n/language-context";
+import { motion } from "framer-motion";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
-// Employee interface
-interface Employee {
-  EmployeeID: number;
-  FullName: string;
-  Email: string;
-  PhoneNumber?: string;
-  DateOfBirth?: string;
-  Gender?: string;
-  HireDate: string;
+// Định nghĩa các interface cho dữ liệu
+interface DepartmentData {
+  name: string;
+  value: number;
+}
+
+interface SalaryData {
+  name: string;
+  amount: number;
+}
+
+interface GrowthData {
+  name: string;
+  count: number;
+}
+
+interface AttendanceData {
+  name: string;
+  value: number;
+}
+
+interface DashboardStats {
+  totalEmployees?: number;
+  departments?: DepartmentData[];
+  payroll?: SalaryData[];
+  growth?: GrowthData[];
+  attendance?: { present?: number; absent?: number; leave?: number };
+  notifications?: number;
+}
+
+// Định nghĩa interface cho dữ liệu từ API
+interface APIDepartment {
   DepartmentID: number;
-  PositionID: number;
-  Status: string;
-  department?: { DepartmentName: string };
-  position?: { PositionName: string };
+  DepartmentName: string;
+  Employee_count: number;
 }
 
-interface ApiResponse {
-  data?: Employee | Employee[];
+interface APIAttendance {
+  AttendanceMonth: string;
+  AbsentDays: number;
+  LeaveDays: number;
+  WorkDays: number;
 }
 
-const EmployeeDetailsPage: React.FC = () => {
-  const router = useRouter();
-  const params = useParams();
+interface APIData {
+  total_employees?: number;
+  department_distribution?: APIDepartment[];
+  number_of_departments?: number;
+  number_of_notifications?: number;
+  payroll_total?: number;
+  attendance_overview?: APIAttendance[];
+}
+
+interface APIResponse {
+  status: string;
+  message: string;
+  data: APIData;
+  metadata: Record<string, any>;
+}
+
+// Cấu hình API dựa trên tài liệu
+const API_BASE_URL = process.env.NEXT_PUBLIC_DOMAIN || "http://localhost:8000";
+const DASHBOARD_ENDPOINT = `${API_BASE_URL}/dashboard`;
+
+export default function DashboardPage() {
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [dashboardData, setDashboardData] = useState<DashboardStats>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const { t } = useLanguage();
+  const chartRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const employeeId = params.id as string;
 
-  const [employee, setEmployee] = useState<Employee | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editEmployee, setEditEmployee] = useState<Employee | null>(null);
-
-  // Fetch employee details
-  useEffect(() => {
-    const fetchEmployeeDetails = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const token = localStorage.getItem("userToken");
-        if (!token) {
-          throw new Error("Thiếu token xác thực");
-        }
-
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_DOMAIN}/employees/details/${employeeId}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`Lỗi: ${response.status} ${response.statusText}`);
-        }
-
-        const data: ApiResponse = await response.json();
-
-        // Xử lý dữ liệu từ API (mảng hoặc đối tượng)
-        let employeeData: Employee | null = null;
-        if (Array.isArray(data.data)) {
-          employeeData =
-            data.data.find((emp) => emp.EmployeeID.toString() === employeeId) ||
-            null;
-        } else if (data.data && typeof data.data === "object") {
-          employeeData = data.data as Employee;
-        } else {
-          throw new Error("Dữ liệu trả về không hợp lệ");
-        }
-
-        if (!employeeData) {
-          throw new Error("Không tìm thấy thông tin nhân viên");
-        }
-
-        setEmployee(employeeData);
-        setEditEmployee(employeeData);
-      } catch (err: any) {
-        console.error("Lỗi khi lấy thông tin nhân viên:", err);
-        setError(err.message || "Không thể tải thông tin nhân viên");
-        toast({
-          title: "Lỗi",
-          description: err.message || "Không thể tải thông tin nhân viên",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (employeeId) {
-      fetchEmployeeDetails();
-    }
-  }, [employeeId, toast]);
-
-  // Handle employee update
-  const handleUpdateEmployee = async () => {
-    if (!editEmployee || !employee) return;
-
+  const fetchDashboardData = async (role: string) => {
+    setIsLoading(true);
+    setApiError(null);
     try {
-      const token = localStorage.getItem("userToken");
-      if (!token) {
-        throw new Error("Thiếu token xác thực");
-      }
-
-      const updateData = {
-        DepartmentID: editEmployee.DepartmentID,
-        PositionID: editEmployee.PositionID,
-        Status: editEmployee.Status,
-      };
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_DOMAIN}/employees/update/${employee.EmployeeID}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify(updateData),
-        }
-      );
-
+      const endpoint = `${DASHBOARD_ENDPOINT}/${role}`;
+      console.log("Calling API:", endpoint);
+      const response = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("userToken") || ""}`,
+        },
+      });
       if (!response.ok) {
-        throw new Error(`Lỗi: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.warn(
+          `API call to ${endpoint} failed with status ${response.status}: ${errorText}`
+        );
+        if (response.status === 404) {
+          setApiError(
+            `Endpoint ${endpoint} not found. Please check the server configuration.`
+          );
+          toast({
+            title: "API Error",
+            description: `Dashboard data for role "${role}" not found. Contact your administrator.`,
+            variant: "destructive",
+          });
+        }
+        setDashboardData({});
+      } else {
+        const apiResponse: APIResponse = await response.json();
+        console.log("API Response:", apiResponse);
+
+        // Chuyển đổi dữ liệu từ API sang định dạng mà UI mong đợi
+        const apiData = apiResponse.data;
+        const transformedData: DashboardStats = {
+          totalEmployees: apiData.total_employees || 0,
+          departments:
+            apiData.department_distribution?.map((dept) => ({
+              name: dept.DepartmentName,
+              value: dept.Employee_count,
+            })) || [],
+          payroll: apiData.payroll_total
+            ? [
+                {
+                  name: "Total Payroll",
+                  amount: apiData.payroll_total,
+                },
+              ]
+            : [],
+          growth: [], // API không có dữ liệu này, để trống
+          attendance: apiData.attendance_overview?.length
+            ? {
+                present:
+                  apiData.attendance_overview[
+                    apiData.attendance_overview.length - 1
+                  ].WorkDays || 0,
+                absent:
+                  apiData.attendance_overview[
+                    apiData.attendance_overview.length - 1
+                  ].AbsentDays || 0,
+                leave:
+                  apiData.attendance_overview[
+                    apiData.attendance_overview.length - 1
+                  ].LeaveDays || 0,
+              }
+            : { present: 0, absent: 0, leave: 0 },
+          notifications: apiData.number_of_notifications || 0,
+        };
+
+        setDashboardData(transformedData);
       }
-
-      // Update local state with new data
-      setEmployee({
-        ...employee,
-        ...updateData,
-        department: {
-          DepartmentName: getDepartmentName(editEmployee.DepartmentID),
-        },
-        position: {
-          PositionName: getPositionName(editEmployee.PositionID),
-        },
-      });
-
-      setIsEditDialogOpen(false);
+    } catch (error) {
+      console.error("Lỗi khi lấy dữ liệu dashboard:", error);
+      setApiError("Unable to connect to the server. Please try again later.");
       toast({
-        title: "Thành công",
-        description: "Thông tin nhân viên đã được cập nhật",
+        title: "Network Error",
+        description:
+          "Unable to fetch dashboard data. Please check your connection.",
+        variant: "destructive",
       });
-    } catch (err: any) {
-      console.error("Lỗi khi cập nhật nhân viên:", err);
+      setDashboardData({});
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    setMounted(true);
+    const role = localStorage.getItem("userRole");
+    setUserRole(role);
+    if (role) fetchDashboardData(role);
+    else {
+      setApiError("User role not found. Please log in again.");
       toast({
-        title: "Lỗi",
-        description: err.message || "Không thể cập nhật thông tin nhân viên",
+        title: "Authentication Error",
+        description: "User role not found. Please log in again.",
         variant: "destructive",
       });
     }
-  };
+  }, []);
 
-  // Helper functions to get department and position names
-  const getDepartmentName = (id: number): string => {
-    const departments: Record<number, string> = {
-      1: "Phòng nhân sự",
-      2: "Phòng Kế toán",
-      3: "Phòng Kinh doanh",
-      4: "Phòng Kỹ thuật",
-      5: "Phòng IT",
-      6: "Phòng Marketing",
-    };
-    return departments[id] || "Không xác định";
-  };
-
-  const getPositionName = (id: number): string => {
-    const positions: Record<number, string> = {
-      1: "Nhân viên",
-      2: "Trưởng phòng",
-      3: "Phó phòng",
-      4: "Giám đốc",
-      5: "Kỹ sư phần mềm",
-      6: "Kế toán viên",
-    };
-    return positions[id] || "Không xác định";
-  };
-
-  // Format date for display
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "N/A";
-    return new Date(dateString).toLocaleDateString("vi-VN");
-  };
-
-  // Get status badge class
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "Active":
-        return "bg-green-900/20 text-green-400 border-green-800";
-      case "On Leave":
-        return "bg-yellow-900/20 text-yellow-400 border-yellow-800";
-      default:
-        return "bg-red-900/20 text-red-400 border-red-800";
-    }
-  };
-
-  // Get status text
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "Active":
-        return "Đang làm việc";
-      case "On Leave":
-        return "Nghỉ phép";
-      default:
-        return "Không hoạt động";
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-[70vh]">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-t-blue-500 border-b-blue-700 border-l-blue-600 border-r-blue-600 rounded-full animate-spin mx-auto"></div>
-          <p className="text-blue-400 font-medium">
-            Đang tải thông tin nhân viên...
-          </p>
-        </div>
-      </div>
-    );
+  if (!mounted) {
+    return null;
   }
 
-  if (error || !employee) {
+  if (apiError) {
     return (
-      <div className="flex flex-col items-center justify-center h-[70vh] space-y-4">
-        <div className="text-red-500 text-5xl">⚠️</div>
-        <h2 className="text-xl font-semibold text-white">
-          Không thể tải thông tin nhân viên
-        </h2>
-        <p className="text-slate-400">
-          {error || "Đã xảy ra lỗi không xác định"}
-        </p>
+      <div className="flex flex-col items-center justify-center h-screen">
+        <h1 className="text-2xl font-bold text-red-600">{apiError}</h1>
         <Button
-          onClick={() => router.push("/dashboard/employees")}
-          className="bg-blue-600 hover:bg-blue-700"
+          className="mt-4"
+          onClick={() => fetchDashboardData(userRole || "admin")}
         >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Quay lại danh sách nhân viên
+          Retry
         </Button>
       </div>
     );
   }
+
+  const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+  const totalEmployees = dashboardData.totalEmployees || 0;
+  const departmentData = dashboardData.departments || [];
+  const salaryData = dashboardData.payroll || [];
+  const employeeGrowthData = dashboardData.growth || [];
+  const attendanceData = dashboardData.attendance
+    ? [
+        { name: "Present", value: dashboardData.attendance.present || 0 },
+        { name: "Absent", value: dashboardData.attendance.absent || 0 },
+        { name: "Leave", value: dashboardData.attendance.leave || 0 },
+      ]
+    : [];
+  const notifications = dashboardData.notifications || 0;
+
+  const container = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const item = {
+    hidden: { y: 20, opacity: 0 },
+    show: { y: 0, opacity: 1 },
+  };
+
+  const fadeIn = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { duration: 0.8 },
+    },
+  };
+
+  const slideUp = {
+    hidden: { y: 50, opacity: 0 },
+    show: {
+      y: 0,
+      opacity: 1,
+      transition: {
+        type: "spring",
+        stiffness: 100,
+        damping: 15,
+      },
+    },
+  };
+
+  const currentTime = new Date().toLocaleString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Ho_Chi_Minh",
+  });
+  const lastUpdated = `Today, ${currentTime}`;
 
   return (
     <motion.div
-      className="space-y-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.3 }}
+      className="space-y-8"
+      variants={container}
+      initial="hidden"
+      animate="show"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => router.push("/dashboard/employees")}
-            className="h-10 w-10 rounded-full border-slate-700 text-blue-300 hover:bg-slate-800"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span className="sr-only">Quay lại</span>
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-              {employee.FullName}
-            </h1>
-            <p className="text-slate-400">{employee.Email}</p>
-          </div>
+      <motion.div
+        className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        variants={fadeIn}
+      >
+        <div>
+          <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            {t("dashboard.title")}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Welcome back! Here's an overview of your organization.
+          </p>
         </div>
-        <Button
-          onClick={() => setIsEditDialogOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700"
+        <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className="bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-200 px-3 py-1 rounded-full"
+          >
+            <Clock className="mr-1 h-3 w-3" /> Last updated: {lastUpdated}
+          </Badge>
+        </div>
+      </motion.div>
+
+      <motion.div
+        className="grid gap-6 md:grid-cols-2 lg:grid-cols-4"
+        variants={container}
+      >
+        <motion.div
+          variants={item}
+          whileHover={{
+            scale: 1.03,
+            transition: { duration: 0.2 },
+          }}
         >
-          <Edit className="mr-2 h-4 w-4" />
-          Chỉnh sửa thông tin
-        </Button>
-      </div>
-
-      {/* Main content */}
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="bg-slate-800 border border-slate-700 p-1">
-          <TabsTrigger
-            value="overview"
-            className="data-[state=active]:bg-blue-600"
-          >
-            Tổng quan
-          </TabsTrigger>
-          <TabsTrigger
-            value="employment"
-            className="data-[state=active]:bg-blue-600"
-          >
-            Thông tin công việc
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="mt-6 space-y-6">
-          {/* Personal Information */}
-          <Card className="border-0 shadow-xl bg-gradient-to-b from-slate-950 to-slate-900">
-            <CardHeader className="border-b border-slate-800/50">
-              <CardTitle className="text-white">Thông tin cá nhân</CardTitle>
-              <CardDescription className="text-blue-300">
-                Thông tin chi tiết về nhân viên
-              </CardDescription>
+          <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-white to-blue-50 dark:from-slate-900 dark:to-blue-950 hover:shadow-xl transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {t("dashboard.totalEmployees")}
+              </CardTitle>
+              <div className="rounded-full bg-blue-100 p-2 text-blue-600 dark:bg-blue-900 dark:text-blue-200">
+                <Users className="h-4 w-4" />
+              </div>
             </CardHeader>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-start space-x-3">
-                    <User className="h-5 w-5 text-blue-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-300">
-                        Họ và tên
-                      </p>
-                      <p className="text-white">{employee.FullName}</p>
-                    </div>
-                  </div>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {isLoading ? "..." : totalEmployees}
+              </div>
+              <div className="flex items-center pt-1">
+                <TrendingUp className="mr-1 h-3 w-3 text-green-600" />
+                <span className="text-xs font-medium text-green-600">
+                  +4.3%
+                </span>
+                <span className="ml-1 text-xs text-muted-foreground">
+                  from last month
+                </span>
+              </div>
+              <div className="mt-4 h-1 w-full bg-blue-100 dark:bg-blue-900 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-blue-600 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: isLoading ? "0%" : "85%" }}
+                  transition={{ duration: 1, delay: 0.5 }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-                  <div className="flex items-start space-x-3">
-                    <Mail className="h-5 w-5 text-blue-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-300">Email</p>
-                      <p className="text-white">{employee.Email}</p>
-                    </div>
-                  </div>
+        <motion.div
+          variants={item}
+          whileHover={{
+            scale: 1.03,
+            transition: { duration: 0.2 },
+          }}
+        >
+          <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-white to-green-50 dark:from-slate-900 dark:to-green-950 hover:shadow-xl transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {t("dashboard.departments")}
+              </CardTitle>
+              <div className="rounded-full bg-green-100 p-2 text-green-600 dark:bg-green-900 dark:text-green-200">
+                <Building2 className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {isLoading ? "..." : departmentData.length}
+              </div>
+              <div className="flex items-center pt-1">
+                <UserPlus className="mr-1 h-3 w-3 text-green-600" />
+                <span className="text-xs font-medium text-green-600">+1</span>
+                <span className="ml-1 text-xs text-muted-foreground">
+                  new department
+                </span>
+              </div>
+              <div className="mt-4 h-1 w-full bg-green-100 dark:bg-green-900 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-green-600 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: isLoading ? "0%" : "65%" }}
+                  transition={{ duration: 1, delay: 0.6 }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-                  <div className="flex items-start space-x-3">
-                    <Phone className="h-5 w-5 text-blue-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-300">
-                        Số điện thoại
-                      </p>
-                      <p className="text-white">
-                        {employee.PhoneNumber || "Chưa cập nhật"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+        <motion.div
+          variants={item}
+          whileHover={{
+            scale: 1.03,
+            transition: { duration: 0.2 },
+          }}
+        >
+          <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-white to-yellow-50 dark:from-slate-900 dark:to-yellow-950 hover:shadow-xl transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {t("dashboard.payrollTotal")}
+              </CardTitle>
+              <div className="rounded-full bg-yellow-100 p-2 text-yellow-600 dark:bg-yellow-900 dark:text-yellow-200">
+                <DollarSign className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {isLoading
+                  ? "..."
+                  : `$${salaryData
+                      .reduce((sum, curr) => sum + (curr.amount || 0), 0)
+                      .toLocaleString()}`}
+              </div>
+              <div className="flex items-center pt-1">
+                <Percent className="mr-1 h-3 w-3 text-green-600" />
+                <span className="text-xs font-medium text-green-600">
+                  +2.5%
+                </span>
+                <span className="ml-1 text-xs text-muted-foreground">
+                  from last month
+                </span>
+              </div>
+              <div className="mt-4 h-1 w-full bg-yellow-100 dark:bg-yellow-900 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-yellow-600 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: isLoading ? "0%" : "75%" }}
+                  transition={{ duration: 1, delay: 0.7 }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-                <div className="space-y-4">
-                  <div className="flex items-start space-x-3">
-                    <Calendar className="h-5 w-5 text-blue-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-300">
-                        Ngày sinh
-                      </p>
-                      <p className="text-white">
-                        {formatDate(employee.DateOfBirth)}
-                      </p>
-                    </div>
-                  </div>
+        <motion.div
+          variants={item}
+          whileHover={{
+            scale: 1.03,
+            transition: { duration: 0.2 },
+          }}
+        >
+          <Card className="overflow-hidden border-0 shadow-lg bg-gradient-to-br from-white to-purple-50 dark:from-slate-900 dark:to-purple-950 hover:shadow-xl transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {t("dashboard.notificationsCount")}
+              </CardTitle>
+              <div className="rounded-full bg-purple-100 p-2 text-purple-600 dark:bg-purple-900 dark:text-purple-200">
+                <Bell className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">
+                {isLoading ? "..." : notifications}
+              </div>
+              <div className="flex items-center pt-1">
+                <span className="text-xs font-medium text-blue-600">
+                  {isLoading ? "..." : Math.min(notifications, 5)}
+                </span>
+                <span className="ml-1 text-xs text-muted-foreground">
+                  unread messages
+                </span>
+              </div>
+              <div className="mt-4 h-1 w-full bg-purple-100 dark:bg-purple-900 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full bg-purple-600 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{
+                    width: isLoading
+                      ? "0%"
+                      : `${Math.min((notifications / 20) * 100, 45)}%`,
+                  }}
+                  transition={{ duration: 1, delay: 0.8 }}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
 
-                  <div className="flex items-start space-x-3">
-                    <User className="h-5 w-5 text-blue-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-300">
-                        Giới tính
-                      </p>
-                      <p className="text-white">
-                        {employee.Gender === "Male"
-                          ? "Nam"
-                          : employee.Gender === "Female"
-                          ? "Nữ"
-                          : employee.Gender || "Chưa cập nhật"}
-                      </p>
-                    </div>
-                  </div>
+      <motion.div variants={slideUp}>
+        <Tabs defaultValue="overview" className="space-y-8">
+          <TabsList className="bg-muted/50 rounded-lg p-1 border">
+            <TabsTrigger value="overview" className="rounded-md">
+              {t("dashboard.overview")}
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="rounded-md">
+              {t("dashboard.analytics")}
+            </TabsTrigger>
+            {userRole === "admin" && (
+              <TabsTrigger value="reports" className="rounded-md">
+                {t("dashboard.reports")}
+              </TabsTrigger>
+            )}
+          </TabsList>
 
-                  <div className="flex items-start space-x-3">
-                    <Clock className="h-5 w-5 text-blue-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-300">
-                        Trạng thái
-                      </p>
-                      <Badge
-                        variant="outline"
-                        className={getStatusBadge(employee.Status)}
+          <TabsContent value="overview" className="space-y-8">
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+              <motion.div
+                className="col-span-2"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+                whileHover={{
+                  boxShadow:
+                    "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+                  transition: { duration: 0.2 },
+                }}
+              >
+                <Card className="col-span-2 border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 border-b">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center">
+                          <BarChart3 className="mr-2 h-5 w-5 text-blue-600" />
+                          {t("dashboard.monthlyPayroll")}
+                        </CardTitle>
+                        <CardDescription>
+                          {t("dashboard.payrollDistribution")}
+                        </CardDescription>
+                      </div>
+                      <Button variant="outline" size="sm" className="gap-1">
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                        Details
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="h-80" ref={chartRef}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={salaryData}>
+                          <defs>
+                            <linearGradient
+                              id="colorAmount"
+                              x1="0"
+                              y1="0"
+                              x2="0"
+                              y2="1"
+                            >
+                              <stop
+                                offset="5%"
+                                stopColor="#3b82f6"
+                                stopOpacity={0.8}
+                              />
+                              <stop
+                                offset="95%"
+                                stopColor="#3b82f6"
+                                stopOpacity={0}
+                              />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            stroke="#e5e7eb"
+                          />
+                          <XAxis dataKey="name" stroke="#6b7280" />
+                          <YAxis stroke="#6b7280" />
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "rgba(255, 255, 255, 0.9)",
+                              borderRadius: "8px",
+                              boxShadow:
+                                "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                              border: "none",
+                            }}
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="amount"
+                            stroke="#3b82f6"
+                            strokeWidth={3}
+                            fillOpacity={1}
+                            fill="url(#colorAmount)"
+                            animationDuration={1500}
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                whileHover={{
+                  boxShadow:
+                    "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+                  transition: { duration: 0.2 },
+                }}
+              >
+                <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 h-full overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 border-b">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center">
+                          <Activity className="mr-2 h-5 w-5 text-blue-600" />
+                          {t("dashboard.departmentDistribution")}
+                        </CardTitle>
+                        <CardDescription>
+                          Employee count by department
+                        </CardDescription>
+                      </div>
+                      <Button variant="outline" size="sm" className="gap-1">
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                        Details
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={departmentData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                            label={({ name, percent }) =>
+                              `${name} ${(percent * 100).toFixed(0)}%`
+                            }
+                            animationDuration={1500}
+                            animationBegin={300}
+                          >
+                            {departmentData.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={COLORS[index % COLORS.length]}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "rgba(255, 255, 255, 0.9)",
+                              borderRadius: "8px",
+                              boxShadow:
+                                "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                              border: "none",
+                            }}
+                          />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </div>
+
+            <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+                whileHover={{
+                  boxShadow:
+                    "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+                  transition: { duration: 0.2 },
+                }}
+              >
+                <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 border-b">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center">
+                          <Users className="mr-2 h-5 w-5 text-blue-600" />
+                          {t("dashboard.attendanceOverview")}
+                        </CardTitle>
+                        <CardDescription>
+                          Current month attendance statistics
+                        </CardDescription>
+                      </div>
+                      <Button variant="outline" size="sm" className="gap-1">
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                        Details
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={attendanceData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                            label={({ name, percent }) =>
+                              `${name} ${(percent * 100).toFixed(0)}%`
+                            }
+                            animationDuration={1500}
+                            animationBegin={300}
+                          >
+                            {attendanceData.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={COLORS[index % COLORS.length]}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{
+                              backgroundColor: "rgba(255, 255, 255, 0.9)",
+                              borderRadius: "8px",
+                              boxShadow:
+                                "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                              border: "none",
+                            }}
+                          />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+
+              <motion.div
+                className="col-span-2"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5, duration: 0.5 }}
+                whileHover={{
+                  boxShadow:
+                    "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+                  transition: { duration: 0.2 },
+                }}
+              >
+                <Card className="col-span-2 border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 border-b">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center">
+                          <Clock className="mr-2 h-5 w-5 text-blue-600" />
+                          {t("dashboard.recentActivities")}
+                        </CardTitle>
+                        <CardDescription>
+                          Latest system activities
+                        </CardDescription>
+                      </div>
+                      <Button variant="outline" size="sm" className="gap-1">
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                        View All
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="space-y-0 divide-y">
+                      <motion.div
+                        className="flex items-center p-4 hover:bg-muted/50 transition-colors"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.6 }}
+                        whileHover={{ x: 5 }}
                       >
-                        {getStatusText(employee.Status)}
-                      </Badge>
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-200">
+                          <UserPlus className="h-5 w-5" />
+                        </div>
+                        <div className="ml-4 space-y-1">
+                          <p className="text-sm font-medium leading-none">
+                            New employee added
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            2 hours ago
+                          </p>
+                        </div>
+                        <Badge className="ml-auto">New</Badge>
+                      </motion.div>
+
+                      <motion.div
+                        className="flex items-center p-4 hover:bg-muted/50 transition-colors"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.7 }}
+                        whileHover={{ x: 5 }}
+                      >
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-200">
+                          <DollarSign className="h-5 w-5" />
+                        </div>
+                        <div className="ml-4 space-y-1">
+                          <p className="text-sm font-medium leading-none">
+                            Payroll processed for April
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Yesterday at 3:45 PM
+                          </p>
+                        </div>
+                      </motion.div>
+
+                      <motion.div
+                        className="flex items-center p-4 hover:bg-muted/50 transition-colors"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.8 }}
+                        whileHover={{ x: 5 }}
+                      >
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-100 text-yellow-600 dark:bg-yellow-900 dark:text-yellow-200">
+                          <Building2 className="h-5 w-5" />
+                        </div>
+                        <div className="ml-4 space-y-1">
+                          <p className="text-sm font-medium leading-none">
+                            Department structure updated
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            2 days ago
+                          </p>
+                        </div>
+                      </motion.div>
+
+                      <motion.div
+                        className="flex items-center p-4 hover:bg-muted/50 transition-colors"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.9 }}
+                        whileHover={{ x: 5 }}
+                      >
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-200">
+                          <Bell className="h-5 w-5" />
+                        </div>
+                        <div className="ml-4 space-y-1">
+                          <p className="text-sm font-medium leading-none">
+                            5 employees marked anniversary
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            3 days ago
+                          </p>
+                        </div>
+                      </motion.div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="employment" className="mt-6 space-y-6">
-          {/* Employment Information */}
-          <Card className="border-0 shadow-xl bg-gradient-to-b from-slate-950 to-slate-900">
-            <CardHeader className="border-b border-slate-800/50">
-              <CardTitle className="text-white">Thông tin công việc</CardTitle>
-              <CardDescription className="text-blue-300">
-                Chi tiết về vị trí và phòng ban
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-start space-x-3">
-                    <Building className="h-5 w-5 text-blue-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-300">
-                        Phòng ban
-                      </p>
-                      <p className="text-white">
-                        {employee.department?.DepartmentName ||
-                          getDepartmentName(employee.DepartmentID)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-3">
-                    <Briefcase className="h-5 w-5 text-blue-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-300">
-                        Vị trí
-                      </p>
-                      <p className="text-white">
-                        {employee.position?.PositionName ||
-                          getPositionName(employee.PositionID)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-start space-x-3">
-                    <Calendar className="h-5 w-5 text-blue-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-300">
-                        Ngày vào làm
-                      </p>
-                      <p className="text-white">
-                        {formatDate(employee.HireDate)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start space-x-3">
-                    <Award className="h-5 w-5 text-blue-400 mt-0.5" />
-                    <div>
-                      <p className="text-sm font-medium text-blue-300">
-                        Mã nhân viên
-                      </p>
-                      <p className="text-white">#{employee.EmployeeID}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-lg bg-slate-900 border border-slate-700 rounded-2xl p-6 shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-white text-xl font-semibold text-center">
-              Chỉnh sửa thông tin nhân viên
-            </DialogTitle>
-            <DialogDescription className="text-blue-300 text-center">
-              Cập nhật thông tin công việc của {employee.FullName}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-5 py-4">
-            <div className="grid gap-2">
-              <label htmlFor="edit-name" className="text-blue-400 font-medium">
-                Họ và Tên
-              </label>
-              <Input
-                id="edit-name"
-                value={employee.FullName}
-                readOnly
-                className="bg-slate-800 border-slate-700 text-white cursor-not-allowed"
-              />
+                  </CardContent>
+                </Card>
+              </motion.div>
             </div>
+          </TabsContent>
 
-            <div className="grid gap-2">
-              <label htmlFor="edit-email" className="text-blue-400 font-medium">
-                Email
-              </label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={employee.Email}
-                readOnly
-                className="bg-slate-800 border-slate-700 text-white cursor-not-allowed"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <label
-                htmlFor="edit-department"
-                className="text-blue-400 font-medium"
-              >
-                Phòng ban
-              </label>
-              <Select
-                value={editEmployee?.DepartmentID?.toString()}
-                onValueChange={(value) =>
-                  setEditEmployee((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          DepartmentID: Number.parseInt(value),
-                        }
-                      : null
-                  )
-                }
-              >
-                <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-                  <SelectValue placeholder="Chọn phòng ban" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                  <SelectItem value="1">Phòng nhân sự</SelectItem>
-                  <SelectItem value="2">Phòng Kế toán</SelectItem>
-                  <SelectItem value="3">Phòng Kinh doanh</SelectItem>
-                  <SelectItem value="4">Phòng Kỹ thuật</SelectItem>
-                  <SelectItem value="5">Phòng IT</SelectItem>
-                  <SelectItem value="6">Phòng Marketing</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
-              <label
-                htmlFor="edit-position"
-                className="text-blue-400 font-medium"
-              >
-                Vị trí
-              </label>
-              <Select
-                value={editEmployee?.PositionID?.toString()}
-                onValueChange={(value) =>
-                  setEditEmployee((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          PositionID: Number.parseInt(value),
-                        }
-                      : null
-                  )
-                }
-              >
-                <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-                  <SelectValue placeholder="Chọn vị trí" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                  <SelectItem value="1">Nhân viên</SelectItem>
-                  <SelectItem value="2">Trưởng phòng</SelectItem>
-                  <SelectItem value="3">Phó phòng</SelectItem>
-                  <SelectItem value="4">Giám đốc</SelectItem>
-                  <SelectItem value="5">Kỹ sư phần mềm</SelectItem>
-                  <SelectItem value="6">Kế toán viên</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
-              <label
-                htmlFor="edit-status"
-                className="text-blue-400 font-medium"
-              >
-                Trạng thái
-              </label>
-              <Select
-                value={editEmployee?.Status}
-                onValueChange={(value) =>
-                  setEditEmployee((prev) =>
-                    prev
-                      ? {
-                          ...prev,
-                          Status: value,
-                        }
-                      : null
-                  )
-                }
-              >
-                <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-                  <SelectValue placeholder="Chọn trạng thái" />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                  <SelectItem value="Active">Đang làm việc</SelectItem>
-                  <SelectItem value="On Leave">Nghỉ phép</SelectItem>
-                  <SelectItem value="Inactive">Không hoạt động</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <DialogFooter className="mt-4">
-            <Button
-              onClick={handleUpdateEmployee}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 rounded-lg transition duration-200"
+          <TabsContent value="analytics" className="space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              whileHover={{
+                boxShadow:
+                  "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+                transition: { duration: 0.2 },
+              }}
             >
-              <Save className="mr-2 h-4 w-4" />
-              Lưu thay đổi
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 border-b">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>HR Analytics</CardTitle>
+                      <CardDescription>
+                        Detailed analytics about employee data
+                      </CardDescription>
+                    </div>
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      Export
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={employeeGrowthData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis dataKey="name" stroke="#6b7280" />
+                        <YAxis stroke="#6b7280" />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: "rgba(255, 255, 255, 0.9)",
+                            borderRadius: "8px",
+                            boxShadow:
+                              "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+                            border: "none",
+                          }}
+                        />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="count"
+                          stroke="#3b82f6"
+                          strokeWidth={3}
+                          activeDot={{ r: 8 }}
+                          animationDuration={1500}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="reports" className="space-y-6">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              whileHover={{
+                boxShadow:
+                  "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+                transition: { duration: 0.2 },
+              }}
+            >
+              <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/50 dark:to-indigo-950/50 border-b">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>System Reports</CardTitle>
+                      <CardDescription>
+                        Administrative reports and system status
+                      </CardDescription>
+                    </div>
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                      Generate
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <div className="rounded-full bg-blue-100 p-3 text-blue-600 dark:bg-blue-900 dark:text-blue-200 mb-4">
+                      <BarChart3 className="h-8 w-8" />
+                    </div>
+                    <h3 className="text-lg font-medium mb-2">
+                      Administrative reports will be displayed here
+                    </h3>
+                    <p className="text-sm text-muted-foreground max-w-md">
+                      Generate custom reports based on your organization's data
+                      to gain valuable insights and make informed decisions.
+                    </p>
+                    <Button className="mt-6">Create New Report</Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </TabsContent>
+        </Tabs>
+      </motion.div>
     </motion.div>
   );
-};
-
-export default EmployeeDetailsPage;
+}

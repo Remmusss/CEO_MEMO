@@ -1,6 +1,12 @@
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import Link from "next/link"
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import Link from "next/link";
 
 export default function Home() {
   // In a real application, we would check if the user is authenticated
@@ -27,5 +33,5 @@ export default function Home() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

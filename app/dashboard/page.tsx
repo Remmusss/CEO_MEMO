@@ -41,11 +41,20 @@ import { useLanguage } from "@/lib/i18n/language-context";
 import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
-// Định nghĩa các interface cho dữ liệu
+// Define interfaces for API data
 interface DepartmentData {
-  name: string;
-  value: number;
+  DepartmentID: number;
+  DepartmentName: string;
+  Employee_count: number;
+}
+
+interface AttendanceData {
+  AttendanceMonth: string;
+  AbsentDays: number;
+  LeaveDays: number;
+  WorkDays: number;
 }
 
 interface SalaryData {
@@ -58,168 +67,130 @@ interface GrowthData {
   count: number;
 }
 
-interface AttendanceData {
-  name: string;
-  value: number;
-}
-
 interface DashboardStats {
-  total: number;
+  total_employees: number;
+  department_distribution: DepartmentData[];
+  attendance_overview: AttendanceData[];
+  payroll_total: number;
+  number_of_departments: number;
+  number_of_notifications: number;
 }
 
-// URL cơ bản của API (giả định)
-const API_BASE_URL = `${process.env.NEXT_PUBLIC_DOMAIN}/api`;
+// Default dashboard data (used when API fails or returns invalid data)
+const defaultDashboardData: DashboardStats = {
+  total_employees: 0,
+  department_distribution: [
+    { DepartmentID: 0, DepartmentName: "Engineering", Employee_count: 0 },
+    { DepartmentID: 1, DepartmentName: "HR", Employee_count: 0 },
+    { DepartmentID: 2, DepartmentName: "Finance", Employee_count: 0 },
+  ],
+  attendance_overview: [
+    { AttendanceMonth: "Jan", AbsentDays: 0, LeaveDays: 0, WorkDays: 0 },
+    { AttendanceMonth: "Feb", AbsentDays: 0, LeaveDays: 0, WorkDays: 0 },
+    { AttendanceMonth: "Mar", AbsentDays: 0, LeaveDays: 0, WorkDays: 0 },
+  ],
+  payroll_total: 0,
+  number_of_departments: 0,
+  number_of_notifications: 0,
+};
+
+// API configuration
+const API_BASE_URL = process.env.NEXT_PUBLIC_DOMAIN || "http://localhost:8000";
+const DASHBOARD_ENDPOINT = `${API_BASE_URL}/dashboard`;
 
 export default function DashboardPage() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
-  const [totalEmployees, setTotalEmployees] = useState(0);
-  const [departmentData, setDepartmentData] = useState<DepartmentData[]>([]);
-  const [salaryData, setSalaryData] = useState<SalaryData[]>([]);
-  const [employeeGrowthData, setEmployeeGrowthData] = useState<GrowthData[]>(
-    []
-  );
-  const [attendanceData, setAttendanceData] = useState<AttendanceData[]>([]);
+  const [dashboardData, setDashboardData] =
+    useState<DashboardStats>(defaultDashboardData);
   const [isLoading, setIsLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
   const { t } = useLanguage();
   const chartRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
 
-  // Hàm lấy dữ liệu từ API
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = async (role: string) => {
     setIsLoading(true);
+    setApiError(null);
     try {
-      // Lấy tổng số nhân viên
-      const employeesResponse = await fetch(
-        `${API_BASE_URL}/employees?per_page=1`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("userToken") || ""}`,
-          },
-        }
-      );
-      if (!employeesResponse.ok) {
+      const endpoint = `${DASHBOARD_ENDPOINT}/${role}`;
+      console.log("Calling API:", endpoint);
+      const response = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("userToken") || ""}`,
+        },
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
         console.warn(
-          `API call to ${API_BASE_URL}/employees failed with status ${employeesResponse.status}`
+          `API call to ${endpoint} failed with status ${response.status}: ${errorText}`
         );
-        setTotalEmployees(0); // Gán mặc định khi lỗi
-      } else {
-        const employeesData: DashboardStats = await employeesResponse.json();
-        setTotalEmployees(employeesData.total || 0);
-      }
-
-      // Lấy dữ liệu phân bố phòng ban
-      const departmentsResponse = await fetch(
-        `${API_BASE_URL}/employees/departments`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("userToken") || ""}`,
-          },
-        }
-      );
-      if (!departmentsResponse.ok) {
-        console.warn(
-          `API call to ${API_BASE_URL}/employees/departments failed with status ${departmentsResponse.status}`
-        );
-        setDepartmentData([]);
-      } else {
-        const departmentsData = await departmentsResponse.json();
-        console.log("Departments Data:", departmentsData); // Debug
-        if (Array.isArray(departmentsData)) {
-          setDepartmentData(
-            departmentsData.map((dept: any) => ({
-              name: dept.DepartmentName || dept.name || "Unknown",
-              value: dept.employeeCount || dept.value || 0,
-            }))
+        if (response.status === 404) {
+          setApiError(
+            `Endpoint ${endpoint} not found. Please check the server configuration.`
           );
+          toast({
+            title: "API Error",
+            description: `Dashboard data for role "${role}" not found. Contact your administrator.`,
+            variant: "destructive",
+          });
+        }
+        setDashboardData(defaultDashboardData);
+      } else {
+        const responseData = await response.json();
+        console.log("API Response:", responseData);
+        // Extract data from response (assuming response has a 'data' field)
+        const data = responseData.data || responseData;
+        if (typeof data === "string") {
+          try {
+            const parsedData = JSON.parse(data);
+            setDashboardData(parsedData || defaultDashboardData);
+          } catch (parseError) {
+            console.error("Failed to parse API response as JSON:", parseError);
+            setApiError("Invalid API response format. Expected JSON object.");
+            toast({
+              title: "Data Error",
+              description:
+                "Received invalid data from server. Using default data.",
+              variant: "destructive",
+            });
+            setDashboardData(defaultDashboardData);
+          }
         } else {
-          console.warn("Departments data is not an array:", departmentsData);
-          setDepartmentData([]);
+          // Merge API data with defaults to ensure all fields are present
+          const mergedData: DashboardStats = {
+            total_employees:
+              data.total_employees ?? defaultDashboardData.total_employees,
+            department_distribution:
+              data.department_distribution ??
+              defaultDashboardData.department_distribution,
+            attendance_overview:
+              data.attendance_overview ??
+              defaultDashboardData.attendance_overview,
+            payroll_total:
+              data.payroll_total ?? defaultDashboardData.payroll_total,
+            number_of_departments:
+              data.number_of_departments ??
+              defaultDashboardData.number_of_departments,
+            number_of_notifications:
+              data.number_of_notifications ??
+              defaultDashboardData.number_of_notifications,
+          };
+          setDashboardData(mergedData);
         }
-      }
-
-      // Lấy dữ liệu lương theo tháng
-      const salaryResponse = await fetch(`${API_BASE_URL}/payroll/monthly`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("userToken") || ""}`,
-        },
-      });
-      if (!salaryResponse.ok) {
-        console.warn(
-          `API call to ${API_BASE_URL}/payroll/monthly failed with status ${salaryResponse.status}`
-        );
-        setSalaryData([]);
-      } else {
-        const salaryDataResponse: { month: string; totalAmount: number }[] =
-          await salaryResponse.json();
-        setSalaryData(
-          salaryDataResponse.map((item) => ({
-            name: item.month,
-            amount: item.totalAmount,
-          }))
-        );
-      }
-
-      // Lấy dữ liệu tăng trưởng nhân viên
-      const growthResponse = await fetch(`${API_BASE_URL}/employees/growth`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("userToken") || ""}`,
-        },
-      });
-      if (!growthResponse.ok) {
-        console.warn(
-          `API call to ${API_BASE_URL}/employees/growth failed with status ${growthResponse.status}`
-        );
-        setEmployeeGrowthData([]);
-      } else {
-        const growthDataResponse: { month: string; employeeCount: number }[] =
-          await growthResponse.json();
-        setEmployeeGrowthData(
-          growthDataResponse.map((item) => ({
-            name: item.month,
-            count: item.employeeCount,
-          }))
-        );
-      }
-
-      // Lấy dữ liệu chấm công
-      const attendanceResponse = await fetch(
-        `${API_BASE_URL}/attendance/summary`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("userToken") || ""}`,
-          },
-        }
-      );
-      if (!attendanceResponse.ok) {
-        console.warn(
-          `API call to ${API_BASE_URL}/attendance/summary failed with status ${attendanceResponse.status}`
-        );
-        setAttendanceData([]);
-      } else {
-        const attendanceDataResponse: {
-          present: number;
-          absent: number;
-          leave: number;
-        } = await attendanceResponse.json();
-        setAttendanceData([
-          { name: "Present", value: attendanceDataResponse.present || 0 },
-          { name: "Absent", value: attendanceDataResponse.absent || 0 },
-          { name: "Leave", value: attendanceDataResponse.leave || 0 },
-        ]);
       }
     } catch (error) {
-      console.error("Lỗi khi lấy dữ liệu dashboard:", error);
-      // Gán giá trị mặc định khi có lỗi
-      setTotalEmployees(0);
-      setDepartmentData([]);
-      setSalaryData([]);
-      setEmployeeGrowthData([]);
-      setAttendanceData([]);
+      console.error("Error fetching dashboard data:", error);
+      setApiError("Unable to connect to the server. Please try again later.");
+      toast({
+        title: "Network Error",
+        description:
+          "Unable to fetch dashboard data. Please check your connection.",
+        variant: "destructive",
+      });
+      setDashboardData(defaultDashboardData);
     } finally {
       setIsLoading(false);
     }
@@ -229,14 +200,67 @@ export default function DashboardPage() {
     setMounted(true);
     const role = localStorage.getItem("userRole");
     setUserRole(role);
-    fetchDashboardData(); // Gọi API khi component mount
+    if (role) {
+      fetchDashboardData(role);
+    } else {
+      setApiError("User role not found. Please log in again.");
+      toast({
+        title: "Authentication Error",
+        description: "User role not found. Please log in again.",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+    }
   }, []);
 
   if (!mounted) {
     return null;
   }
 
+  if (apiError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <h1 className="text-2xl font-bold text-red-600">{apiError}</h1>
+        <Button
+          className="mt-4"
+          onClick={() => fetchDashboardData(userRole || "admin")}
+        >
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+  const totalEmployees = dashboardData.total_employees || 0;
+  const departmentData =
+    dashboardData.department_distribution?.map((dept) => ({
+      name: dept.DepartmentName,
+      value: dept.Employee_count,
+    })) || [];
+  const salaryData =
+    dashboardData.attendance_overview?.map((item) => ({
+      name: new Date(item.AttendanceMonth).toLocaleString("en-US", {
+        month: "short",
+      }),
+      amount:
+        dashboardData.payroll_total / dashboardData.attendance_overview.length, // Distribute total payroll across months
+    })) || [];
+  const employeeGrowthData =
+    dashboardData.attendance_overview?.map((item, index) => ({
+      name: new Date(item.AttendanceMonth).toLocaleString("en-US", {
+        month: "short",
+      }),
+      count: dashboardData.total_employees, // Static employee count (API doesn't provide growth data)
+    })) || [];
+  const attendanceData =
+    dashboardData.attendance_overview?.map((item) => ({
+      name: new Date(item.AttendanceMonth).toLocaleString("en-US", {
+        month: "short",
+      }),
+      value: item.WorkDays,
+    })) || [];
+  const notifications = dashboardData.number_of_notifications || 0;
 
   const container = {
     hidden: { opacity: 0 },
@@ -274,7 +298,6 @@ export default function DashboardPage() {
     },
   };
 
-  // Cập nhật thời gian hiện tại (05:03 PM +07, 23/05/2025)
   const currentTime = new Date().toLocaleString("en-US", {
     hour: "2-digit",
     minute: "2-digit",
@@ -375,7 +398,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">
-                {isLoading ? "..." : departmentData.length}
+                {isLoading ? "..." : dashboardData.number_of_departments}
               </div>
               <div className="flex items-center pt-1">
                 <UserPlus className="mr-1 h-3 w-3 text-green-600" />
@@ -416,9 +439,7 @@ export default function DashboardPage() {
               <div className="text-3xl font-bold">
                 {isLoading
                   ? "..."
-                  : `$${salaryData
-                      .reduce((sum, curr) => sum + (curr.amount || 0), 0)
-                      .toLocaleString()}`}
+                  : `$${dashboardData.payroll_total.toLocaleString()}`}
               </div>
               <div className="flex items-center pt-1">
                 <Percent className="mr-1 h-3 w-3 text-green-600" />
@@ -458,9 +479,13 @@ export default function DashboardPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold">12</div>
+              <div className="text-3xl font-bold">
+                {isLoading ? "..." : notifications}
+              </div>
               <div className="flex items-center pt-1">
-                <span className="text-xs font-medium text-blue-600">5</span>
+                <span className="text-xs font-medium text-blue-600">
+                  {isLoading ? "..." : Math.min(notifications, 5)}
+                </span>
                 <span className="ml-1 text-xs text-muted-foreground">
                   unread messages
                 </span>
@@ -469,7 +494,11 @@ export default function DashboardPage() {
                 <motion.div
                   className="h-full bg-purple-600 rounded-full"
                   initial={{ width: 0 }}
-                  animate={{ width: "45%" }}
+                  animate={{
+                    width: isLoading
+                      ? "0%"
+                      : `${Math.min((notifications / 20) * 100, 45)}%`,
+                  }}
                   transition={{ duration: 1, delay: 0.8 }}
                 />
               </div>

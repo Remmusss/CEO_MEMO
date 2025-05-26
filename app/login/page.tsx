@@ -1,121 +1,132 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useToast } from "@/hooks/use-toast"
-import { useLanguage } from "@/lib/i18n/language-context"
-import { LanguageSelector } from "@/components/language-selector"
-import { motion } from "framer-motion"
-import { Briefcase, User, Lock, ChevronRight, Info } from "lucide-react"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  CardFooter,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useToast } from "@/hooks/use-toast";
+import { useLanguage } from "@/lib/i18n/language-context";
+import { LanguageSelector } from "@/components/language-selector";
+import { motion } from "framer-motion";
+import { Briefcase, User, Lock, ChevronRight, Info } from "lucide-react";
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
-  const [role, setRole] = useState("")
-  const [mounted, setMounted] = useState(false)
-  const router = useRouter()
-  const { toast } = useToast()
-  const { t } = useLanguage()
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("");
+  const [mounted, setMounted] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
+  const { t } = useLanguage();
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
-const handleLogin = async (e: React.FormEvent) => {
-  e.preventDefault()
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-  if (!username || !password || !role) {
-    toast({
-      title: t("auth.loginFailed"),
-      description: "Please fill in all fields",
-      variant: "destructive",
-    })
-    return
-  }
-
-  try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_DOMAIN}/login`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Accept: "application/json",
-      },
-      body: new URLSearchParams({
-        username,
-        password,
-      }).toString(),
-    })
-
-    if (response.ok) {
-      const userToken = await response.json()
-      console.log("User token:", userToken)
-
-
-      // (Giả định API trả về token dưới dạng chuỗi, bạn có thể cập nhật nếu khác)
-      const mockUserData = {
-        id: `EMP${Math.floor(Math.random() * 1000)
-          .toString()
-          .padStart(3, "0")}`,
-        name: username,
-        email: `${username.toLowerCase().replace(/\s+/g, ".")}@example.com`,
-        role: role,
-        department:
-          role === "hr-manager"
-            ? "Human Resources"
-            : role === "payroll-manager"
-              ? "Finance"
-              : role === "admin"
-                ? "Administration"
-                : "Engineering",
-        jobTitle:
-          role === "hr-manager"
-            ? "HR Manager"
-            : role === "payroll-manager"
-              ? "Payroll Manager"
-              : role === "admin"
-                ? "System Administrator"
-                : "Software Engineer",
-        joinDate: "2023-01-15",
-        lastLogin: new Date().toISOString(),
-        token: userToken, // Lưu token nếu có
-      }
-
-      localStorage.setItem("userRole", role)
-      localStorage.setItem("userName", username)
-      localStorage.setItem("userData", JSON.stringify(mockUserData))
-      localStorage.setItem("userToken", userToken?.access_token)
-
-      toast({
-        title: t("auth.loginSuccess"),
-        description: `${t("auth.loginSuccess")} ${role}`,
-      })
-
-      router.push("/dashboard")
-    } else {
-      const error = await response.json()
+    if (!username || !password || !role) {
       toast({
         title: t("auth.loginFailed"),
-        description: error.detail?.[0]?.msg || "Invalid credentials",
+        description: "Please fill in all fields",
         variant: "destructive",
-      })
+      });
+      return;
     }
-  } catch (error) {
-    toast({
-      title: t("auth.loginFailed"),
-      description: "Server error or network issue",
-      variant: "destructive",
-    })
-    console.error("Login error:", error)
-  }
-}
 
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_DOMAIN}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: new URLSearchParams({
+          username,
+          password,
+        }).toString(),
+      });
+
+      if (response.ok) {
+        const userToken = await response.json();
+        console.log("User token:", userToken);
+
+        // (Giả định API trả về token dưới dạng chuỗi, bạn có thể cập nhật nếu khác)
+        const mockUserData = {
+          id: `EMP${Math.floor(Math.random() * 1000)
+            .toString()
+            .padStart(3, "0")}`,
+          name: username,
+          email: `${username.toLowerCase().replace(/\s+/g, ".")}@example.com`,
+          role: role,
+          department:
+            role === "hr-manager"
+              ? "Human Resources"
+              : role === "payroll-manager"
+              ? "Finance"
+              : role === "admin"
+              ? "Administration"
+              : "Engineering",
+          jobTitle:
+            role === "hr-manager"
+              ? "HR Manager"
+              : role === "payroll-manager"
+              ? "Payroll Manager"
+              : role === "admin"
+              ? "System Administrator"
+              : "Software Engineer",
+          joinDate: "2023-01-15",
+          lastLogin: new Date().toISOString(),
+          token: userToken, // Lưu token nếu có
+        };
+
+        localStorage.setItem("userRole", role);
+        localStorage.setItem("userName", username);
+        localStorage.setItem("userData", JSON.stringify(mockUserData));
+        localStorage.setItem("userToken", userToken?.access_token);
+
+        toast({
+          title: t("auth.loginSuccess"),
+          description: `${t("auth.loginSuccess")} ${role}`,
+        });
+
+        router.push("/dashboard");
+      } else {
+        const error = await response.json();
+        toast({
+          title: t("auth.loginFailed"),
+          description: error.detail?.[0]?.msg || "Invalid credentials",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: t("auth.loginFailed"),
+        description: "Server error or network issue",
+        variant: "destructive",
+      });
+      console.error("Login error:", error);
+    }
+  };
 
   // Don't render the full component until client-side hydration is complete
   if (!mounted) {
@@ -123,8 +134,12 @@ const handleLogin = async (e: React.FormEvent) => {
       <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 p-4">
         <Card className="w-full max-w-md shadow-lg border-0">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">Login</CardTitle>
-            <CardDescription className="text-center">Enter your credentials to access the system</CardDescription>
+            <CardTitle className="text-2xl font-bold text-center">
+              Login
+            </CardTitle>
+            <CardDescription className="text-center">
+              Enter your credentials to access the system
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex justify-center py-8">
@@ -133,7 +148,7 @@ const handleLogin = async (e: React.FormEvent) => {
           </CardContent>
         </Card>
       </div>
-    )
+    );
   }
 
   return (
@@ -160,13 +175,19 @@ const handleLogin = async (e: React.FormEvent) => {
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">
             ZenHRM System
           </h1>
-          <p className="mt-2 text-blue-200/80">Enterprise management solution</p>
+          <p className="mt-2 text-blue-200/80">
+            Enterprise management solution
+          </p>
         </div>
 
         <Card className="w-full shadow-xl border-0 bg-black/40 backdrop-blur-md">
           <CardHeader className="space-y-1 border-b border-white/10 bg-white/5">
-            <CardTitle className="text-2xl font-bold text-center text-white">{t("auth.loginTitle")}</CardTitle>
-            <CardDescription className="text-center text-blue-200/70">{t("auth.loginDescription")}</CardDescription>
+            <CardTitle className="text-2xl font-bold text-center text-white">
+              {t("auth.loginTitle")}
+            </CardTitle>
+            <CardDescription className="text-center text-blue-200/70">
+              {t("auth.loginDescription")}
+            </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
             <form onSubmit={handleLogin} className="grid gap-5">
@@ -209,20 +230,35 @@ const handleLogin = async (e: React.FormEvent) => {
                   {t("auth.role")}
                 </Label>
                 <Select value={role} onValueChange={setRole} required>
-                  <SelectTrigger id="role" className="bg-white/10 border-white/10 text-white focus:border-blue-400">
+                  <SelectTrigger
+                    id="role"
+                    className="bg-white/10 border-white/10 text-white focus:border-blue-400"
+                  >
                     <SelectValue placeholder={t("auth.selectRole")} />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-800 text-white">
-                    <SelectItem value="admin" className="focus:bg-blue-900/50 focus:text-white">
+                    <SelectItem
+                      value="admin"
+                      className="focus:bg-blue-900/50 focus:text-white"
+                    >
                       {t("auth.admin")}
                     </SelectItem>
-                    <SelectItem value="hr-manager" className="focus:bg-blue-900/50 focus:text-white">
+                    <SelectItem
+                      value="hr-manager"
+                      className="focus:bg-blue-900/50 focus:text-white"
+                    >
                       {t("auth.hrManager")}
                     </SelectItem>
-                    <SelectItem value="payroll-manager" className="focus:bg-blue-900/50 focus:text-white">
+                    <SelectItem
+                      value="payroll-manager"
+                      className="focus:bg-blue-900/50 focus:text-white"
+                    >
                       {t("auth.payrollManager")}
                     </SelectItem>
-                    <SelectItem value="employee" className="focus:bg-blue-900/50 focus:text-white">
+                    <SelectItem
+                      value="employee"
+                      className="focus:bg-blue-900/50 focus:text-white"
+                    >
                       {t("auth.employee")}
                     </SelectItem>
                   </SelectContent>
@@ -246,5 +282,5 @@ const handleLogin = async (e: React.FormEvent) => {
         </Card>
       </motion.div>
     </div>
-  )
+  );
 }

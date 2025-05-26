@@ -54,6 +54,7 @@ import {
   Eye,
   ChevronLeft,
   ChevronRight,
+  Send,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-context";
 import { motion } from "framer-motion";
@@ -80,6 +81,7 @@ interface ApiResponse {
 
 // URL cơ bản của API
 const API_BASE_URL = `${process.env.NEXT_PUBLIC_DOMAIN}/payroll`;
+const NOTIFICATION_API_URL = `${process.env.NEXT_PUBLIC_DOMAIN}/notifications/email-salary-notification`;
 
 // Hàm lấy header xác thực
 const getAuthHeaders = () => {
@@ -221,6 +223,32 @@ const updatePayroll = async (payrollId: number, updateData: any) => {
   }
 };
 
+// Hàm gửi thông báo lương qua email
+const sendSalaryNotification = async (monthStr: string) => {
+  try {
+    const response = await fetch(
+      `${NOTIFICATION_API_URL}?month_str=${encodeURIComponent(monthStr)}`,
+      {
+        method: "POST",
+        headers: getAuthHeaders(),
+      }
+    );
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      console.error("Phản hồi lỗi từ API gửi thông báo:", errorData);
+      throw new Error(
+        `Không thể gửi thông báo lương: ${response.status} ${
+          response.statusText
+        }${errorData?.detail ? ` - ${JSON.stringify(errorData.detail)}` : ""}`
+      );
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Lỗi khi gửi thông báo lương:", error);
+    throw error;
+  }
+};
+
 export default function PayrollPage() {
   // Quản lý trạng thái
   const [payrollData, setPayrollData] = useState<Payroll[]>([]);
@@ -233,8 +261,11 @@ export default function PayrollPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isSendNotificationDialogOpen, setIsSendNotificationDialogOpen] =
+    useState(false);
   const [selectedPayroll, setSelectedPayroll] = useState<Payroll | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [monthStr, setMonthStr] = useState("");
   const [newPayroll, setNewPayroll] = useState({
     EmployeeID: 0,
     FullName: "",
@@ -349,6 +380,34 @@ export default function PayrollPage() {
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
+  };
+
+  const handlerSendNotification = async () => {
+    if (!monthStr) {
+      toast({
+        title: "Lỗi",
+        description:
+          "Vui lòng nhập tháng để gửi thông báo (định dạng YYYY-MM hoặc YYYY-MM-DD).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await sendSalaryNotification(monthStr);
+      setIsSendNotificationDialogOpen(false);
+      setMonthStr("");
+      toast({
+        title: "Thành công",
+        description: `Thông báo lương cho tháng ${monthStr} đã được gửi thành công.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Lỗi",
+        description: `Không thể gửi thông báo lương: ${error.message}`,
+        variant: "destructive",
+      });
+    }
   };
 
   const handlePageChange = (newPage: number) => {
@@ -470,145 +529,201 @@ export default function PayrollPage() {
         <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
           Quản Lý Lương
         </h1>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700">
-              <Plus className="mr-2 h-4 w-4" />
-              Thêm Lương
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800">
-            <DialogHeader>
-              <DialogTitle className="text-white">Thêm Lương</DialogTitle>
-              <DialogDescription className="text-blue-300">
-                Điền thông tin để thêm bản ghi lương mới
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <label htmlFor="employeeId" className="text-blue-300">
-                  Mã Nhân Viên
-                </label>
-                <Input
-                  id="employeeId"
-                  type="number"
-                  value={newPayroll.EmployeeID}
-                  onChange={(e) =>
-                    setNewPayroll({
-                      ...newPayroll,
-                      EmployeeID: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  placeholder="Nhập mã nhân viên"
-                  className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
-                />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="fullName" className="text-blue-300">
-                  Họ và Tên
-                </label>
-                <Input
-                  id="fullName"
-                  value={newPayroll.FullName}
-                  onChange={(e) =>
-                    setNewPayroll({ ...newPayroll, FullName: e.target.value })
-                  }
-                  placeholder="Nguyễn Văn A"
-                  className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
-                />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="baseSalary" className="text-blue-300">
-                  Lương Cơ Bản (VND)
-                </label>
-                <Input
-                  id="baseSalary"
-                  type="number"
-                  value={newPayroll.BaseSalary}
-                  onChange={(e) =>
-                    setNewPayroll({
-                      ...newPayroll,
-                      BaseSalary: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  placeholder="Nhập lương cơ bản"
-                  className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
-                />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="bonus" className="text-blue-300">
-                  Thưởng (VND)
-                </label>
-                <Input
-                  id="bonus"
-                  type="number"
-                  value={newPayroll.Bonus}
-                  onChange={(e) =>
-                    setNewPayroll({
-                      ...newPayroll,
-                      Bonus: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  placeholder="Nhập số tiền thưởng"
-                  className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
-                />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="deductions" className="text-blue-300">
-                  Khấu Trừ (VND)
-                </label>
-                <Input
-                  id="deductions"
-                  type="number"
-                  value={newPayroll.Deductions}
-                  onChange={(e) =>
-                    setNewPayroll({
-                      ...newPayroll,
-                      Deductions: parseFloat(e.target.value) || 0,
-                    })
-                  }
-                  placeholder="Nhập số tiền khấu trừ"
-                  className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
-                />
-              </div>
-              <div className="grid gap-2">
-                <label htmlFor="status" className="text-blue-300">
-                  Trạng Thái
-                </label>
-                <Select
-                  value={newPayroll.Status}
-                  onValueChange={(value) =>
-                    setNewPayroll({ ...newPayroll, Status: value })
-                  }
-                >
-                  <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-                    <SelectValue placeholder="Chọn trạng thái" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                    <SelectItem value="Pending">Chờ xử lý</SelectItem>
-                    <SelectItem value="Paid">Đã thanh toán</SelectItem>
-                    <SelectItem value="On Hold">Tạm hoãn</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsAddDialogOpen(false)}
-                className="border-slate-700 text-blue-300 hover:bg-slate-800"
-              >
-                Hủy
+        <div className="flex gap-3">
+          <Dialog
+            open={isSendNotificationDialogOpen}
+            onOpenChange={setIsSendNotificationDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button className="bg-purple-600 hover:bg-purple-700">
+                <Send className="mr-2 h-4 w-4" />
+                Gửi Thông Báo Lương
               </Button>
-              <Button
-                onClick={handleAddPayroll}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800">
+              <DialogHeader>
+                <DialogTitle className="text-white">
+                  Gửi Thông Báo Lương
+                </DialogTitle>
+                <DialogDescription className="text-blue-300">
+                  Nhập tháng để gửi thông báo lương qua email cho tất cả nhân
+                  viên.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <label htmlFor="monthStr" className="text-blue-300">
+                    Tháng (YYYY-MM hoặc YYYY-MM-DD)
+                  </label>
+                  <Input
+                    id="monthStr"
+                    value={monthStr}
+                    onChange={(e) => setMonthStr(e.target.value)}
+                    placeholder="Ví dụ: 2025-05 hoặc 2025-05-01"
+                    className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsSendNotificationDialogOpen(false);
+                    setMonthStr("");
+                  }}
+                  className="border-slate-700 text-blue-300 hover:bg-slate-800"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={handlerSendNotification}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  Gửi Thông Báo
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="mr-2 h-4 w-4" />
                 Thêm Lương
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800">
+              <DialogHeader>
+                <DialogTitle className="text-white">Thêm Lương</DialogTitle>
+                <DialogDescription className="text-blue-300">
+                  Điền thông tin để thêm bản ghi lương mới
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <label htmlFor="employeeId" className="text-blue-300">
+                    Mã Nhân Viên
+                  </label>
+                  <Input
+                    id="employeeId"
+                    type="number"
+                    value={newPayroll.EmployeeID}
+                    onChange={(e) =>
+                      setNewPayroll({
+                        ...newPayroll,
+                        EmployeeID: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="Nhập mã nhân viên"
+                    className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="fullName" className="text-blue-300">
+                    Họ và Tên
+                  </label>
+                  <Input
+                    id="fullName"
+                    value={newPayroll.FullName}
+                    onChange={(e) =>
+                      setNewPayroll({ ...newPayroll, FullName: e.target.value })
+                    }
+                    placeholder="Nguyễn Văn A"
+                    className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="baseSalary" className="text-blue-300">
+                    Lương Cơ Bản (VND)
+                  </label>
+                  <Input
+                    id="baseSalary"
+                    type="number"
+                    value={newPayroll.BaseSalary}
+                    onChange={(e) =>
+                      setNewPayroll({
+                        ...newPayroll,
+                        BaseSalary: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="Nhập lương cơ bản"
+                    className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="bonus" className="text-blue-300">
+                    Thưởng (VND)
+                  </label>
+                  <Input
+                    id="bonus"
+                    type="number"
+                    value={newPayroll.Bonus}
+                    onChange={(e) =>
+                      setNewPayroll({
+                        ...newPayroll,
+                        Bonus: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="Nhập số tiền thưởng"
+                    className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="deductions" className="text-blue-300">
+                    Khấu Trừ (VND)
+                  </label>
+                  <Input
+                    id="deductions"
+                    type="number"
+                    value={newPayroll.Deductions}
+                    onChange={(e) =>
+                      setNewPayroll({
+                        ...newPayroll,
+                        Deductions: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                    placeholder="Nhập số tiền khấu trừ"
+                    className="bg-slate-800 border-slate-700 text-white focus:border-blue-500"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <label htmlFor="status" className="text-blue-300">
+                    Trạng Thái
+                  </label>
+                  <Select
+                    value={newPayroll.Status}
+                    onValueChange={(value) =>
+                      setNewPayroll({ ...newPayroll, Status: value })
+                    }
+                  >
+                    <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
+                      <SelectValue placeholder="Chọn trạng thái" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-slate-700 text-white">
+                      <SelectItem value="Pending">Chờ xử lý</SelectItem>
+                      <SelectItem value="Paid">Đã thanh toán</SelectItem>
+                      <SelectItem value="On Hold">Tạm hoãn</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsAddDialogOpen(false)}
+                  className="border-slate-700 text-blue-300 hover:bg-slate-800"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={handleAddPayroll}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Thêm Lương
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <Card className="border-0 shadow-xl bg-gradient-to-b from-slate-950 to-slate-900">
@@ -688,7 +803,7 @@ export default function PayrollPage() {
                   payrollData.map((payroll) => (
                     <TableRow
                       key={payroll.SalaryID}
-                      className="hover:bg-slate-800/50 border-slate-700"
+                      className="hover:bg-slate-800/50 border-slate W-700"
                     >
                       <TableCell className="text-slate-300">
                         {payroll.SalaryID}

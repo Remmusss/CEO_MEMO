@@ -27,6 +27,7 @@ import {
   Shield,
   Save,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -38,13 +39,21 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
-// Default user data structure (dùng khi API thất bại)
+// Default user data structure (used when API fails)
 const defaultUserData = {
   id: "EMP001",
   name: "John Doe",
@@ -71,12 +80,13 @@ const defaultUserData = {
     leave: 1,
     total: 22,
   },
+  salaryGapWarnings: [],
 };
 
 // API base URLs
 const PROFILE_API_BASE_URL = `${process.env.NEXT_PUBLIC_DOMAIN}/profile`;
 
-// Hàm lấy header xác thực
+// Function to get auth headers
 const getAuthHeaders = () => {
   const token = localStorage.getItem("userToken");
   if (!token) {
@@ -96,13 +106,18 @@ const fetchProfile = async () => {
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => null);
-      console.error("Fetch profile error:", errorData);
+      console.error(
+        "Fetch profile error:",
+        errorData,
+        response.status,
+        response.statusText
+      );
       throw new Error(
         `Lỗi khi lấy thông tin hồ sơ: ${response.status} ${response.statusText}`
       );
     }
     const data = await response.json();
-    console.log("Profile API Response:", data); // Debug response
+    console.log("Profile API Response:", JSON.stringify(data, null, 2));
     return data;
   } catch (error) {
     console.error("Fetch profile failed:", error);
@@ -154,18 +169,6 @@ export default function ProfilePage() {
     const role = localStorage.getItem("userRole");
     setUserRole(role);
 
-    // Try to load user data from localStorage
-    const storedUserData = localStorage.getItem("userData");
-    if (storedUserData) {
-      try {
-        const parsedData = JSON.parse(storedUserData);
-        setUserData({ ...defaultUserData, ...parsedData });
-        setEditedData({ ...defaultUserData, ...parsedData });
-      } catch (e) {
-        console.error("Failed to parse user data", e);
-      }
-    }
-
     // Fetch profile from API
     loadProfile();
   }, []);
@@ -174,11 +177,69 @@ export default function ProfilePage() {
     try {
       const profileData = await fetchProfile();
       if (profileData.status === "success" && profileData.data) {
-        const fetchedData = { ...defaultUserData, ...profileData.data };
-        setUserData(fetchedData);
-        setEditedData(fetchedData);
-        localStorage.setItem("userData", JSON.stringify(fetchedData));
-        localStorage.setItem("userName", fetchedData.name);
+        // Map data from API response
+        const apiData = profileData.data;
+        const mappedData = {
+          ...defaultUserData,
+          id: apiData.employee_id?.toString() || defaultUserData.id,
+          name: apiData.employee_details?.FullName || defaultUserData.name, // Changed from username to FullName
+          email: apiData.employee_details?.Email || defaultUserData.email,
+          phone: apiData.employee_details?.PhoneNumber || defaultUserData.phone,
+          department:
+            apiData.employee_details?.DepartmentName ||
+            defaultUserData.department,
+          jobTitle:
+            apiData.employee_details?.PositionName || defaultUserData.jobTitle,
+          joinDate:
+            apiData.employee_details?.HireDate || defaultUserData.joinDate,
+          status: apiData.employee_details?.Status || defaultUserData.status,
+          bio: apiData.employee_details?.Bio || defaultUserData.bio,
+          address: apiData.employee_details?.Address || defaultUserData.address,
+          emergencyContact:
+            apiData.employee_details?.EmergencyContact ||
+            defaultUserData.emergencyContact,
+          manager: apiData.employee_details?.Manager || defaultUserData.manager,
+          salary: {
+            ...defaultUserData.salary,
+            base:
+              apiData.payroll_details?.[0]?.BaseSalary ||
+              defaultUserData.salary.base,
+            bonus:
+              apiData.payroll_details?.[0]?.Bonus ||
+              defaultUserData.salary.bonus,
+            deductions:
+              apiData.payroll_details?.[0]?.Deductions ||
+              defaultUserData.salary.deductions,
+            net:
+              (apiData.payroll_details?.[0]?.BaseSalary || 0) +
+                (apiData.payroll_details?.[0]?.Bonus || 0) -
+                (apiData.payroll_details?.[0]?.Deductions || 0) ||
+              defaultUserData.salary.net,
+          },
+          attendance: {
+            ...defaultUserData.attendance,
+            present:
+              apiData.attendance_details?.filter(
+                (d: any) => d.Status === "Present"
+              ).length || defaultUserData.attendance.present,
+            absent:
+              apiData.attendance_details?.filter(
+                (d: any) => d.Status === "Absent"
+              ).length || defaultUserData.attendance.absent,
+            leave:
+              apiData.attendance_details?.filter(
+                (d: any) => d.Status === "On Leave"
+              ).length || defaultUserData.attendance.leave,
+            total:
+              apiData.attendance_details?.length ||
+              defaultUserData.attendance.total,
+          },
+          salaryGapWarnings: apiData.salary_gap_warning || [],
+        };
+        setUserData(mappedData);
+        setEditedData(mappedData);
+        localStorage.setItem("userData", JSON.stringify(mappedData));
+        localStorage.setItem("userName", mappedData.name);
       }
     } catch (error: any) {
       console.error("Load profile failed:", error);
@@ -367,27 +428,39 @@ export default function ProfilePage() {
           </CardHeader>
           <CardContent className="border-t border-slate-700/50 pt-4">
             <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <Mail className="h-4 w-4 text-blue-400" />
-                <span className="text-sm text-slate-300">{userData.email}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Phone className="h-4 w-4 text-blue-400" />
-                <span className="text-sm text-slate-300">{userData.phone}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-4 w-4 text-blue-400" />
-                <span className="text-sm text-slate-300">
-                  Joined {new Date(userData.joinDate).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Building2 className="h-4 w-4 text-blue-400" />
-                <span className="text-sm text-slate-300">
-                  Reports to {userData.manager}
-                </span>
-              </div>
-              {!isEditing && (
+              {userData.email && (
+                <div className="flex items-center space-x-2">
+                  <Mail className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm text-slate-300">
+                    {userData.email}
+                  </span>
+                </div>
+              )}
+              {userData.phone && (
+                <div className="flex items-center space-x-2">
+                  <Phone className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm text-slate-300">
+                    {userData.phone}
+                  </span>
+                </div>
+              )}
+              {userData.joinDate && (
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm text-slate-300">
+                    Joined {new Date(userData.joinDate).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+              {userData.manager && (
+                <div className="flex items-center space-x-2">
+                  <Building2 className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm text-slate-300">
+                    Reports to {userData.manager}
+                  </span>
+                </div>
+              )}
+              {!isEditing && userData.bio && (
                 <div className="pt-4">
                   <div className="rounded-md border border-slate-700 p-3 bg-slate-800/50">
                     <h4 className="text-sm font-medium mb-2 text-blue-300">
@@ -670,7 +743,10 @@ export default function ProfilePage() {
                         {t("profile.baseSalary")}
                       </p>
                       <p className="text-3xl font-bold text-white mt-2">
-                        ${userData.salary.base.toLocaleString()}
+                        {userData.salary.base.toLocaleString("vi-VN", {
+                          style: "currency",
+                          currency: "VND",
+                        })}
                       </p>
                       <div className="mt-2 h-1 w-full bg-blue-900/30 rounded-full overflow-hidden">
                         <motion.div
@@ -686,7 +762,10 @@ export default function ProfilePage() {
                         {t("profile.bonus")}
                       </p>
                       <p className="text-3xl font-bold text-white mt-2">
-                        ${userData.salary.bonus.toLocaleString()}
+                        {userData.salary.bonus.toLocaleString("vi-VN", {
+                          style: "currency",
+                          currency: "VND",
+                        })}
                       </p>
                       <div className="mt-2 h-1 w-full bg-green-900/30 rounded-full overflow-hidden">
                         <motion.div
@@ -702,7 +781,10 @@ export default function ProfilePage() {
                         {t("profile.deductions")}
                       </p>
                       <p className="text-3xl font-bold text-white mt-2">
-                        ${userData.salary.deductions.toLocaleString()}
+                        {userData.salary.deductions.toLocaleString("vi-VN", {
+                          style: "currency",
+                          currency: "VND",
+                        })}
                       </p>
                       <div className="mt-2 h-1 w-full bg-red-900/30 rounded-full overflow-hidden">
                         <motion.div
@@ -718,7 +800,10 @@ export default function ProfilePage() {
                         {t("profile.netSalary")}
                       </p>
                       <p className="text-3xl font-bold text-white mt-2">
-                        ${userData.salary.net.toLocaleString()}
+                        {userData.salary.net.toLocaleString("vi-VN", {
+                          style: "currency",
+                          currency: "VND",
+                        })}
                       </p>
                       <div className="mt-2 h-1 w-full bg-purple-900/30 rounded-full overflow-hidden">
                         <motion.div
@@ -730,6 +815,95 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   </div>
+                  {userData.salaryGapWarnings.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-sm font-medium mb-2 text-blue-300 flex items-center">
+                        <AlertTriangle className="mr-2 h-4 w-4 text-yellow-400" />
+                        Salary Gap Warnings
+                      </h4>
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="border-slate-700">
+                            <TableHead className="text-blue-300">
+                              Employee Name
+                            </TableHead>
+                            <TableHead className="text-blue-300">
+                              Previous Month
+                            </TableHead>
+                            <TableHead className="text-blue-300">
+                              Previous Salary
+                            </TableHead>
+                            <TableHead className="text-blue-300">
+                              Current Month
+                            </TableHead>
+                            <TableHead className="text-blue-300">
+                              Current Salary
+                            </TableHead>
+                            <TableHead className="text-blue-300">
+                              Gap Percentage
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {userData.salaryGapWarnings.map(
+                            (warning: any, index: number) => (
+                              <TableRow
+                                key={index}
+                                className="border-slate-700 hover:bg-slate-800/50"
+                              >
+                                <TableCell className="text-white">
+                                  {warning.EmployeeName}
+                                </TableCell>
+                                <TableCell className="text-white">
+                                  {new Date(
+                                    warning.PreviousMonth
+                                  ).toLocaleString("en-US", {
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </TableCell>
+                                <TableCell className="text-white">
+                                  {warning.PreviousSalary.toLocaleString(
+                                    "vi-VN",
+                                    {
+                                      style: "currency",
+                                      currency: "VND",
+                                    }
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-white">
+                                  {new Date(
+                                    warning.CurrentMonth
+                                  ).toLocaleString("en-US", {
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </TableCell>
+                                <TableCell className="text-white">
+                                  {warning.CurrentSalary.toLocaleString(
+                                    "vi-VN",
+                                    {
+                                      style: "currency",
+                                      currency: "VND",
+                                    }
+                                  )}
+                                </TableCell>
+                                <TableCell
+                                  className={
+                                    warning.GapPercentage < 0
+                                      ? "text-red-400"
+                                      : "text-green-400"
+                                  }
+                                >
+                                  {warning.GapPercentage.toFixed(2)}%
+                                </TableCell>
+                              </TableRow>
+                            )
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                   <div className="mt-6">
                     <Button
                       variant="outline"
