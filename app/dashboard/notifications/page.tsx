@@ -61,8 +61,11 @@ const fetchAnniversaries = async () => {
       );
     }
     const data = await response.json();
-    console.log("Anniversaries API Response:", data); // Debug response
-    return data;
+    // Chuẩn hóa trả về mảng
+    return {
+      status: data.status,
+      data: data.data?.upcoming_anniversaries || [],
+    };
   } catch (error) {
     console.error("Fetch anniversaries failed:", error);
     throw error;
@@ -85,8 +88,11 @@ const fetchAbsentDaysWarning = async () => {
       );
     }
     const data = await response.json();
-    console.log("Absent Days Warning API Response:", data); // Debug response
-    return data;
+    // Chuẩn hóa trả về mảng
+    return {
+      status: data.status,
+      data: data.data?.absent_days_warning || [],
+    };
   } catch (error) {
     console.error("Fetch absent days warning failed:", error);
     throw error;
@@ -109,8 +115,11 @@ const fetchAbsentDaysPersonalWarning = async () => {
       );
     }
     const data = await response.json();
-    console.log("Personal Absent Days Warning API Response:", data); // Debug response
-    return data;
+    // Chuẩn hóa trả về mảng
+    return {
+      status: data.status,
+      data: data.data?.absent_days_warning || [],
+    };
   } catch (error) {
     console.error("Fetch personal absent days warning failed:", error);
     throw error;
@@ -133,8 +142,11 @@ const fetchSalaryGapWarning = async () => {
       );
     }
     const data = await response.json();
-    console.log("Salary Gap Warning API Response:", data); // Debug response
-    return data;
+    // Chuẩn hóa trả về mảng
+    return {
+      status: data.status,
+      data: data.data?.salary_gap_warning || [],
+    };
   } catch (error) {
     console.error("Fetch salary gap warning failed:", error);
     throw error;
@@ -157,8 +169,11 @@ const fetchSalaryGapWarningPersonal = async () => {
       );
     }
     const data = await response.json();
-    console.log("Personal Salary Gap Warning API Response:", data); // Debug response
-    return data;
+    // Chuẩn hóa trả về mảng
+    return {
+      status: data.status,
+      data: data.data?.salary_gap_warning || [],
+    };
   } catch (error) {
     console.error("Fetch personal salary gap warning failed:", error);
     throw error;
@@ -200,27 +215,63 @@ export default function NotificationsPage() {
   // Load notifications based on user role
   const loadNotifications = async () => {
     try {
-      let data = [];
+      let data: NotificationType[] = [];
       if (userRole === "admin" || userRole === "hr-manager") {
         const [anniversaries, absentDays, salaryGap] = await Promise.all([
           fetchAnniversaries(),
           fetchAbsentDaysWarning(),
           fetchSalaryGapWarning(),
         ]);
-        data = [
-          ...(anniversaries.status === "success" &&
+        // Anniversaries
+        const anniversaryNotifications =
+          anniversaries.status === "success" &&
           Array.isArray(anniversaries.data)
             ? anniversaries.data.map((n: any) => ({
-                ...n,
+                id: `anniversary-${n.EmployeeID}-${n.AnniversaryDate}`,
                 type: "anniversary",
+                title: `Kỷ niệm làm việc: ${n.FullName}`,
+                message: `Sẽ đạt mốc ${n.MilestoneYears} năm vào ngày ${n.AnniversaryDate}. Gia nhập: ${n.JoinDate}. Mốc tiếp theo: ${n.UpcomingMilestone} năm.`,
+                date: n.AnniversaryDate,
+                read: false,
               }))
-            : []),
-          ...(absentDays.status === "success" && Array.isArray(absentDays.data)
-            ? absentDays.data.map((n: any) => ({ ...n, type: "leave" }))
-            : []),
-          ...(salaryGap.status === "success" && Array.isArray(salaryGap.data)
-            ? salaryGap.data.map((n: any) => ({ ...n, type: "payroll" }))
-            : []),
+            : [];
+        // Absent Days
+        const absentNotifications =
+          absentDays.status === "success" && Array.isArray(absentDays.data)
+            ? absentDays.data.map((n: any) => ({
+                id: `leave-${n.EmployeeID}-${n.AttendanceMonth}`,
+                type: "leave",
+                title: `Cảnh báo nghỉ phép: Nhân viên #${n.EmployeeID}`,
+                message: `Tháng ${n.AttendanceMonth}: Được phép ${n.AllowedLeaveDays} ngày, đã nghỉ ${n.TakenLeaveDays} ngày, vượt quá ${n.ExcessDays} ngày.`,
+                date: n.AttendanceMonth,
+                read: false,
+              }))
+            : [];
+        // Payroll
+        const payrollNotifications =
+          salaryGap.status === "success" && Array.isArray(salaryGap.data)
+            ? salaryGap.data.map((n: any) => ({
+                id: `payroll-${n.EmployeeID || n.id || Math.random()}`,
+                type: "payroll",
+                title: `Cảnh báo chênh lệch lương: Nhân viên #${
+                  n.EmployeeID || n.id || ""
+                }`,
+                message:
+                  n.Month1 && n.Month2
+                    ? `Lương tháng ${n.Month1}: ${n.Salary1}, tháng ${
+                        n.Month2
+                      }: ${n.Salary2}, chênh lệch: ${
+                        n.Gap || n.SalaryGap || ""
+                      }`
+                    : "Có sự thay đổi lương trong 2 tháng gần đây.",
+                date: n.Month2 || n.date || new Date().toISOString(),
+                read: false,
+              }))
+            : [];
+        data = [
+          ...anniversaryNotifications,
+          ...absentNotifications,
+          ...payrollNotifications,
         ];
       } else {
         const [anniversaries, absentDaysPersonal, salaryGapPersonal] =
@@ -229,28 +280,63 @@ export default function NotificationsPage() {
             fetchAbsentDaysPersonalWarning(),
             fetchSalaryGapWarningPersonal(),
           ]);
-        data = [
-          ...(anniversaries.status === "success" &&
+        // Anniversaries
+        const anniversaryNotifications =
+          anniversaries.status === "success" &&
           Array.isArray(anniversaries.data)
             ? anniversaries.data.map((n: any) => ({
-                ...n,
+                id: `anniversary-${n.EmployeeID}-${n.AnniversaryDate}`,
                 type: "anniversary",
+                title: `Kỷ niệm làm việc: ${n.FullName}`,
+                message: `Sẽ đạt mốc ${n.MilestoneYears} năm vào ngày ${n.AnniversaryDate}. Gia nhập: ${n.JoinDate}. Mốc tiếp theo: ${n.UpcomingMilestone} năm.`,
+                date: n.AnniversaryDate,
+                read: false,
               }))
-            : []),
-          ...(absentDaysPersonal.status === "success" &&
+            : [];
+        // Absent Days (personal)
+        const absentNotifications =
+          absentDaysPersonal.status === "success" &&
           Array.isArray(absentDaysPersonal.data)
-            ? absentDaysPersonal.data.map((n: any) => ({ ...n, type: "leave" }))
-            : []),
-          ...(salaryGapPersonal.status === "success" &&
+            ? absentDaysPersonal.data.map((n: any) => ({
+                id: `leave-${n.EmployeeID}-${n.AttendanceMonth}`,
+                type: "leave",
+                title: `Cảnh báo nghỉ phép cá nhân`,
+                message: `Tháng ${n.AttendanceMonth}: Được phép ${n.AllowedLeaveDays} ngày, đã nghỉ ${n.TakenLeaveDays} ngày, vượt quá ${n.ExcessDays} ngày.`,
+                date: n.AttendanceMonth,
+                read: false,
+              }))
+            : [];
+        // Payroll
+        const payrollNotifications =
+          salaryGapPersonal.status === "success" &&
           Array.isArray(salaryGapPersonal.data)
             ? salaryGapPersonal.data.map((n: any) => ({
-                ...n,
+                id: `payroll-${n.EmployeeID || n.id || Math.random()}`,
                 type: "payroll",
+                title: `Cảnh báo chênh lệch lương cá nhân`,
+                message:
+                  n.Month1 && n.Month2
+                    ? `Lương tháng ${n.Month1}: ${n.Salary1}, tháng ${
+                        n.Month2
+                      }: ${n.Salary2}, chênh lệch: ${
+                        n.Gap || n.SalaryGap || ""
+                      }`
+                    : "Có sự thay đổi lương trong 2 tháng gần đây.",
+                date: n.Month2 || n.date || new Date().toISOString(),
+                read: false,
               }))
-            : []),
+            : [];
+        data = [
+          ...anniversaryNotifications,
+          ...absentNotifications,
+          ...payrollNotifications,
         ];
       }
-      setNotifications(data.map((n: any) => ({ ...n, read: false })));
+      // Sắp xếp mới nhất lên đầu (nếu muốn)
+      data.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      setNotifications(data);
     } catch (error: any) {
       console.error("Load notifications failed:", error);
       if (error.message.includes("401")) {
@@ -414,7 +500,7 @@ export default function NotificationsPage() {
           </div>
         </CardHeader>
         <CardContent className="pt-6">
-          <div className="space-y-4">
+          <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
             {getFilteredNotifications().length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8">
                 <Bell className="h-12 w-12 text-slate-500" />

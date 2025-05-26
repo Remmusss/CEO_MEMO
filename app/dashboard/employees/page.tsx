@@ -390,7 +390,13 @@ export default function EmployeesPage() {
     setMounted(true);
     const role = localStorage.getItem("userRole");
     setUserRole(role);
-    if (role !== "admin" && role !== "hr-manager") router.push("/dashboard");
+    // Điều hướng chỉ khi mounted và role không hợp lệ
+    if (role !== "admin" && role !== "hr-manager") {
+      // Tránh lặp redirect nếu đã ở dashboard
+      if (window.location.pathname !== "/dashboard") {
+        window.location.href = "/dashboard";
+      }
+    }
   }, [router]);
 
   useEffect(() => {
@@ -414,6 +420,14 @@ export default function EmployeesPage() {
 
   const handlePageChange = (newPage: number) => setCurrentPage(newPage);
 
+  // Validate phone number (Vietnam format)
+  const isValidPhoneNumber = (phone: string) => {
+    // Cho phép +84 hoặc 0, theo chuẩn VN (9-10 số sau đầu số)
+    return /^(\+84|0)(3[2-9]|5[6|8|9]|7[0|6-9]|8[1-5]|9[0-9])[0-9]{7}$/.test(
+      phone.trim()
+    );
+  };
+
   const handleAddEmployee = async () => {
     if (
       !newEmployee.FullName ||
@@ -425,6 +439,18 @@ export default function EmployeesPage() {
         title: "Lỗi",
         description:
           "Vui lòng điền đầy đủ thông tin bắt buộc (Họ tên, Email, Phòng ban, Vị trí).",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (
+      newEmployee.PhoneNumber &&
+      !isValidPhoneNumber(newEmployee.PhoneNumber)
+    ) {
+      toast({
+        title: "Lỗi",
+        description:
+          "Số điện thoại không hợp lệ. Vui lòng nhập đúng định dạng số điện thoại Việt Nam.",
         variant: "destructive",
       });
       return;
