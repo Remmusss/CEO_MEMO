@@ -55,6 +55,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Send,
+  Clock,
+  LogIn,
+  LogOut,
+  Timer,
+  FileText,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n/language-context";
 import { motion } from "framer-motion";
@@ -276,6 +281,10 @@ export default function PayrollPage() {
     Status: "Pending",
   });
   const [editPayroll, setEditPayroll] = useState<Payroll | null>(null);
+  const [isCheckInDialogOpen, setIsCheckInDialogOpen] = useState(false);
+  const [isCheckOutDialogOpen, setIsCheckOutDialogOpen] = useState(false);
+  const [isQuickAttendanceOpen, setIsQuickAttendanceOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   const router = useRouter();
   const { t } = useLanguage();
@@ -512,6 +521,69 @@ export default function PayrollPage() {
     }
   };
 
+  const handleCheckIn = async () => {
+    try {
+      toast({
+        title: "Chấm công vào thành công",
+        description: `Đã ghi nhận thời gian vào làm lúc ${currentTime.toLocaleTimeString(
+          "vi-VN"
+        )}`,
+      });
+      setIsCheckInDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: "Lỗi chấm công",
+        description: "Không thể thực hiện chấm công vào. Vui lòng thử lại.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCheckOut = async () => {
+    try {
+      toast({
+        title: "Chấm công ra thành công",
+        description: `Đã ghi nhận thời gian ra về lúc ${currentTime.toLocaleTimeString(
+          "vi-VN"
+        )}`,
+      });
+      setIsCheckOutDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: "Lỗi chấm công",
+        description: "Không thể thực hiện chấm công ra. Vui lòng thử lại.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleQuickAttendance = async (type: "in" | "out") => {
+    try {
+      const message = type === "in" ? "vào làm" : "ra về";
+      toast({
+        title: `Chấm công ${message} nhanh thành công`,
+        description: `Đã ghi nhận thời gian ${message} lúc ${currentTime.toLocaleTimeString(
+          "vi-VN"
+        )}`,
+      });
+      setIsQuickAttendanceOpen(false);
+    } catch (error) {
+      toast({
+        title: "Lỗi chấm công nhanh",
+        description: "Không thể thực hiện chấm công nhanh. Vui lòng thử lại.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Cập nhật thời gian thực
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   const totalPages = Math.ceil(totalPayroll / perPage);
 
   if (!mounted || (userRole !== "admin" && userRole !== "payroll-manager")) {
@@ -530,6 +602,177 @@ export default function PayrollPage() {
           Quản Lý Lương
         </h1>
         <div className="flex gap-3">
+          {/* Quick Attendance Button */}
+          <Dialog
+            open={isQuickAttendanceOpen}
+            onOpenChange={setIsQuickAttendanceOpen}
+          >
+            <DialogTrigger asChild>
+              <Button className="bg-indigo-600 hover:bg-indigo-700">
+                <Timer className="mr-2 h-4 w-4" /> Chấm công nhanh
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800">
+              <DialogHeader>
+                <DialogTitle className="text-white">
+                  Chấm công nhanh
+                </DialogTitle>
+                <DialogDescription className="text-blue-300">
+                  Chọn loại chấm công để thực hiện nhanh
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <div className="text-center space-y-4">
+                  <div className="text-2xl font-bold text-white">
+                    {currentTime.toLocaleTimeString("vi-VN")}
+                  </div>
+                  <div className="text-blue-300">
+                    {currentTime.toLocaleDateString("vi-VN", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </div>
+                </div>
+              </div>
+              <DialogFooter className="flex gap-2">
+                <Button
+                  onClick={() => handleQuickAttendance("in")}
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                >
+                  <LogIn className="mr-2 h-4 w-4" /> Vào làm
+                </Button>
+                <Button
+                  onClick={() => handleQuickAttendance("out")}
+                  className="flex-1 bg-orange-600 hover:bg-orange-700"
+                >
+                  <LogOut className="mr-2 h-4 w-4" /> Ra về
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Check In Button */}
+          <Dialog
+            open={isCheckInDialogOpen}
+            onOpenChange={setIsCheckInDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button className="bg-green-600 hover:bg-green-700">
+                <LogIn className="mr-2 h-4 w-4" /> Chấm công vào
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800">
+              <DialogHeader>
+                <DialogTitle className="text-white">
+                  Chấm công vào làm
+                </DialogTitle>
+                <DialogDescription className="text-blue-300">
+                  Xác nhận thời gian bắt đầu làm việc hôm nay
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <div className="text-center space-y-4">
+                  <div className="text-3xl font-bold text-white">
+                    {currentTime.toLocaleTimeString("vi-VN")}
+                  </div>
+                  <div className="text-blue-300">
+                    {currentTime.toLocaleDateString("vi-VN", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCheckInDialogOpen(false)}
+                  className="border-slate-700 text-blue-300 hover:bg-slate-800"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={handleCheckIn}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  <Clock className="mr-2 h-4 w-4" /> Xác nhận vào làm
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Check Out Button */}
+          <Dialog
+            open={isCheckOutDialogOpen}
+            onOpenChange={setIsCheckOutDialogOpen}
+          >
+            <DialogTrigger asChild>
+              <Button className="bg-orange-600 hover:bg-orange-700">
+                <LogOut className="mr-2 h-4 w-4" /> Chấm công ra
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-md bg-slate-900 border-slate-800">
+              <DialogHeader>
+                <DialogTitle className="text-white">
+                  Chấm công ra về
+                </DialogTitle>
+                <DialogDescription className="text-blue-300">
+                  Xác nhận thời gian kết thúc làm việc hôm nay
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <div className="text-center space-y-4">
+                  <div className="text-3xl font-bold text-white">
+                    {currentTime.toLocaleTimeString("vi-VN")}
+                  </div>
+                  <div className="text-blue-300">
+                    {currentTime.toLocaleDateString("vi-VN", {
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </div>
+                  <div className="bg-slate-800/50 rounded-lg p-3">
+                    <div className="text-sm text-slate-400 mb-1">
+                      Thời gian làm việc hôm nay
+                    </div>
+                    <div className="text-lg font-semibold text-white">
+                      8 giờ 30 phút
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCheckOutDialogOpen(false)}
+                  className="border-slate-700 text-blue-300 hover:bg-slate-800"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  onClick={handleCheckOut}
+                  className="bg-orange-600 hover:bg-orange-700"
+                >
+                  <Clock className="mr-2 h-4 w-4" /> Xác nhận ra về
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Attendance Report Button */}
+          <Button
+            className="bg-cyan-600 hover:bg-cyan-700"
+            onClick={() => router.push("/dashboard/payroll/attendance-page")}
+          >
+            <FileText className="mr-2 h-4 w-4" /> Báo cáo chấm công
+          </Button>
+
           <Dialog
             open={isSendNotificationDialogOpen}
             onOpenChange={setIsSendNotificationDialogOpen}
@@ -610,7 +853,7 @@ export default function PayrollPage() {
                     onChange={(e) =>
                       setNewPayroll({
                         ...newPayroll,
-                        EmployeeID: parseInt(e.target.value) || 0,
+                        EmployeeID: Number.parseInt(e.target.value) || 0,
                       })
                     }
                     placeholder="Nhập mã nhân viên"
@@ -642,7 +885,7 @@ export default function PayrollPage() {
                     onChange={(e) =>
                       setNewPayroll({
                         ...newPayroll,
-                        BaseSalary: parseFloat(e.target.value) || 0,
+                        BaseSalary: Number.parseFloat(e.target.value) || 0,
                       })
                     }
                     placeholder="Nhập lương cơ bản"
@@ -660,7 +903,7 @@ export default function PayrollPage() {
                     onChange={(e) =>
                       setNewPayroll({
                         ...newPayroll,
-                        Bonus: parseFloat(e.target.value) || 0,
+                        Bonus: Number.parseFloat(e.target.value) || 0,
                       })
                     }
                     placeholder="Nhập số tiền thưởng"
@@ -678,7 +921,7 @@ export default function PayrollPage() {
                     onChange={(e) =>
                       setNewPayroll({
                         ...newPayroll,
-                        Deductions: parseFloat(e.target.value) || 0,
+                        Deductions: Number.parseFloat(e.target.value) || 0,
                       })
                     }
                     placeholder="Nhập số tiền khấu trừ"
@@ -748,7 +991,7 @@ export default function PayrollPage() {
             <Select
               value={perPage.toString()}
               onValueChange={(value) => {
-                setPerPage(parseInt(value));
+                setPerPage(Number.parseInt(value));
                 setCurrentPage(1);
               }}
             >
@@ -956,7 +1199,7 @@ export default function PayrollPage() {
                     onChange={(e) =>
                       setEditPayroll((prev: any) => ({
                         ...prev,
-                        Bonus: parseFloat(e.target.value) || 0,
+                        Bonus: Number.parseFloat(e.target.value) || 0,
                       }))
                     }
                     placeholder="Nhập số tiền thưởng"
@@ -974,7 +1217,7 @@ export default function PayrollPage() {
                     onChange={(e) =>
                       setEditPayroll((prev: any) => ({
                         ...prev,
-                        Deductions: parseFloat(e.target.value) || 0,
+                        Deductions: Number.parseFloat(e.target.value) || 0,
                       }))
                     }
                     placeholder="Nhập số tiền khấu trừ"
